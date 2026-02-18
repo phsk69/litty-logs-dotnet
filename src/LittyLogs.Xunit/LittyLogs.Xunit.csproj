@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- NuGet package metadata so the test besties can get litty too -->
+    <PackageId>LittyLogs.Xunit</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>psk</Authors>
+    <Description>xUnit integration for litty-logs. makes your test output bussin with gen alpha slang, emojis, and litty formatting through ITestOutputHelper. one line setup no cap 🔥</Description>
+    <PackageTags>logging;xunit;testing;emoji;gen-alpha;litty;test-output</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.abstractions" Version="2.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LittyLogs\LittyLogs.csproj" />
+  </ItemGroup>
+
+</Project>
