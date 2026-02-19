@@ -200,6 +200,48 @@ four example projects in `examples/` so you can see litty-logs in every scenario
 | `LittyLogs.Example.Console` | simplest possible setup, logs at every level then dips | `just example-console` |
 | `LittyLogs.Example.Xunit` | litty-fied xUnit test output with all log levels | `just example-xunit` |
 
+## development — for the contributing besties 🛠️
+
+### just recipes
+
+this project uses [just](https://just.systems) as the task runner. here are the vibes:
+
+| recipe | what it does |
+|---|---|
+| `just build` | build the whole solution |
+| `just test` | run all tests |
+| `just litty-build` | build with litty-fied output 🔥 |
+| `just litty-test` | test with litty-fied output 🔥 |
+| `just pack` | pack all three NuGet packages |
+| `just bump patch` | bump the patch version (also: `minor`, `major`) |
+| `just bump-pre dev.1` | slap a pre-release label on (e.g. `0.1.0-dev.1`) |
+| `just tag` | create a git tag for the current version |
+| `just release patch` | bump + commit + tag in one shot (does NOT push) |
+| `just nuget-push` | manually push packages to nuget.org |
+
+### versioning
+
+version lives in one place: `Directory.Build.props`. all three packages inherit from it. bump it with `just bump` and the whole squad levels up 🔥
+
+### release flow
+
+```bash
+# bump, commit, and tag
+just release patch
+
+# push code + tag to trigger the CI/CD pipeline
+git push && git push origin v0.1.1
+```
+
+### CI/CD
+
+forgejo actions handles the pipeline on a self-hosted runner:
+
+- **CI** — builds, tests (with litty output 🔥), and packs on every push/PR to `develop` and `main`
+- **Release** — triggered by `v*` tags. builds, tests, packs, pushes to [nuget.org](https://nuget.org), and creates a GitHub release with the `.nupkg` files
+
+see [`docs/runner-setup.md`](docs/runner-setup.md) for runner setup instructions no cap
+
 ## license
 
 MIT — share the vibes bestie ✌️

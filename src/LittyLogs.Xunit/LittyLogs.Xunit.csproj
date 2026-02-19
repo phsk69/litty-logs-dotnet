@@ -6,12 +6,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
 
     <!-- NuGet package metadata so the test besties can get litty too -->
+    <IsPackable>true</IsPackable>
     <PackageId>LittyLogs.Xunit</PackageId>
-    <Version>0.1.0</Version>
-    <Authors>psk</Authors>
     <Description>xUnit integration for litty-logs. makes your test output bussin with gen alpha slang, emojis, and litty formatting through ITestOutputHelper. one line setup no cap 🔥</Description>
     <PackageTags>logging;xunit;testing;emoji;gen-alpha;litty;test-output</PackageTags>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>
