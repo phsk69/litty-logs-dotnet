@@ -70,6 +70,38 @@ jobs:
             echo "CHANGELOG_EOF"
           } >> "$GITHUB_OUTPUT"
 
+      - name: create forgejo release — home turf first 🏠🔥
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          NOTES="${{ steps.changelog.outputs.notes }}"
+          API_URL="${GITHUB_SERVER_URL}/api/v1"
+          REPO="${GITHUB_REPOSITORY}"
+          # create the release
+          RELEASE_ID=$(curl -s -X POST \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"tag_name\": \"${TAG}\", \"name\": \"v${VERSION} — new drop 🔥\", \"body\": $(echo "$NOTES" | jq -Rs .)}" \
+            "${API_URL}/repos/${REPO}/releases" | jq -r '.id')
+          if [ "$RELEASE_ID" = "null" ] || [ -z "$RELEASE_ID" ]; then
+            echo "bruh forgejo release creation failed 💀"
+            exit 1
+          fi
+          echo "forgejo release created with id ${RELEASE_ID} 🔥"
+          # upload the nupkg assets
+          for pkg in ./nupkgs/*.nupkg; do
+            filename=$(basename "$pkg")
+            echo "uploading ${filename} to forgejo release 📤"
+            curl -s -X POST \
+              -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@${pkg}" \
+              "${API_URL}/repos/${REPO}/releases/${RELEASE_ID}/assets?name=${filename}"
+          done
+          echo "forgejo release is bussin 🔥"
+
       - name: create github release on the mirror 🪞
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}

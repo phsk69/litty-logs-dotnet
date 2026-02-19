@@ -258,7 +258,7 @@ git push origin develop main v0.1.1
 forgejo actions handles the pipeline on a self-hosted runner:
 
 - **CI** — builds, tests (with litty output 🔥), and packs on every push/PR to `develop` and `main`
-- **Release** — triggered by `v*` tags. builds, tests, packs, pushes to [nuget.org](https://nuget.org), and creates a GitHub release with the `.nupkg` files
+- **Release** — triggered by `v*` tags. builds, tests, packs, pushes to [nuget.org](https://nuget.org), and creates releases on both Forgejo and [GitHub](https://github.com/phsk69/litty-logs-dotnet/releases) with `.nupkg` assets attached 🔥
 
 see [`docs/runner-setup.md`](docs/runner-setup.md) for runner setup instructions no cap
 
