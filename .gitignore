@@ -1,0 +1,30 @@
+# dotnet build artifacts no cap
+bin/
+obj/
+Debug/
+Release/
+*.dll
+*.exe
+*.pdb
+*.cache
+
+# NuGet
+packages/
+nupkgs/
+*.nupkg
+*.snupkg
+
+# IDE vibes
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+
+# test results
+TestResults/
+*.trx
+
+# misc
+*.log
+*.tmp

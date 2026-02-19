@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LittyLogs/LittyLogs.csproj" />
+    <Project Path="src/LittyLogs.Xunit/LittyLogs.Xunit.csproj" />
+    <Project Path="src/LittyLogs.Tool/LittyLogs.Tool.csproj" />
+    <Project Path="src/LittyLogs.File/LittyLogs.File.csproj" />
+  </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/LittyLogs.Example.WebApi/LittyLogs.Example.WebApi.csproj" />
+    <Project Path="examples/LittyLogs.Example.HostedService/LittyLogs.Example.HostedService.csproj" />
+    <Project Path="examples/LittyLogs.Example.Console/LittyLogs.Example.Console.csproj" />
+    <Project Path="examples/LittyLogs.Example.Xunit/LittyLogs.Example.Xunit.csproj" />
+    <Project Path="examples/LittyLogs.Example.Json/LittyLogs.Example.Json.csproj" />
+    <Project Path="examples/LittyLogs.Example.FileSink/LittyLogs.Example.FileSink.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LittyLogs.Tests/LittyLogs.Tests.csproj" />
+  </Folder>
+</Solution>
