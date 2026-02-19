@@ -215,22 +215,42 @@ this project uses [just](https://just.systems) as the task runner. here are the 
 | `just pack` | pack all three NuGet packages |
 | `just bump patch` | bump the patch version (also: `minor`, `major`) |
 | `just bump-pre dev.1` | slap a pre-release label on (e.g. `0.1.0-dev.1`) |
-| `just tag` | create a git tag for the current version |
-| `just release patch` | bump + commit + tag in one shot (does NOT push) |
+| `just release patch` | gitflow release — bump + `git flow release start/finish` 🚀 |
+| `just release-current` | gitflow release without bumping (for first release etc.) |
+| `just hotfix patch` | start a gitflow hotfix branch off main 🚑 |
+| `just hotfix-finish` | finish a hotfix — `git flow hotfix finish` |
 | `just nuget-push` | manually push packages to nuget.org |
 
 ### versioning
 
-version lives in one place: `Directory.Build.props`. all three packages inherit from it. bump it with `just bump` and the whole squad levels up 🔥
+version lives in one place: `Directory.Build.props`. all three packages inherit from it. we use [gitflow](https://nvie.com/posts/a-successful-git-branching-model/) via the `git flow` CLI — `main` is production, `develop` is the integration branch, releases and hotfixes get their own branches 🔥
 
-### release flow
+### release flow (gitflow)
 
 ```bash
-# bump, commit, and tag
-just release patch
+# from develop — full gitflow ceremony (bump, release branch, merge, tag, cleanup)
+just release patch    # 0.1.0 → 0.1.1
+just release minor    # 0.1.0 → 0.2.0
+just release major    # 0.1.0 → 1.0.0
 
-# push code + tag to trigger the CI/CD pipeline
-git push && git push origin v0.1.1
+# or release the current version without bumping (e.g. first release)
+just release-current
+
+# push everything to trigger the CI/CD pipeline
+git push origin develop main v0.1.1
+```
+
+### hotfix flow
+
+```bash
+# from main — start a hotfix when something is bricked in prod
+just hotfix patch
+
+# make your fix, commit it, then finish
+just hotfix-finish
+
+# push everything
+git push origin develop main v0.1.1
 ```
 
 ### CI/CD

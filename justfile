@@ -81,29 +81,96 @@ bump-pre label:
     sed -i "s|<Version>${current}</Version>|<Version>${new_version}</Version>|" "$props"
     echo "version went from ${current} -> ${new_version} (pre-release mode activated) 🧪"
 
-# slap a git tag on the current version 🏷️
-tag:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    version=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
-    git tag -a "v${version}" -m "v${version} dropped no cap 🔥"
-    echo "tagged v${version} — push with: git push origin v${version} 🏷️"
-
-# the full release combo — bump + commit + tag (does NOT push, thats on you bestie) 🚀
+# gitflow release — bump + git flow release start/finish 🚀
 # usage: just release patch (or minor, or major)
 release part:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "starting the release ritual bestie 🕯️"
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "fam your working tree is dirty, commit or stash first no cap 😤"
+        exit 1
+    fi
+    echo "starting the gitflow release ritual bestie 🕯️"
+    echo ""
     just bump {{part}}
     version=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
+    git flow release start "${version}"
     git add Directory.Build.props
     git commit -m "bump: v${version} incoming no cap 🔥"
-    git tag -a "v${version}" -m "v${version} dropped no cap 🔥"
+    GIT_MERGE_AUTOEDIT=no git flow release finish "${version}" -m "v${version} dropped no cap 🔥"
     echo ""
-    echo "version bumped to ${version} and tagged as v${version} 🏷️"
-    echo "now push it to trigger the release pipeline:"
-    echo "  git push && git push origin v${version}"
+    echo "=========================================="
+    echo "  gitflow release v${version} complete 🔥"
+    echo "=========================================="
+    echo ""
+    echo "now push everything to trigger the release pipeline:"
+    echo "  git push origin develop main v${version}"
+
+# release the current version as-is without bumping 🚀
+# for when Directory.Build.props already has the version you want (e.g. first release)
+release-current:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "fam your working tree is dirty, commit or stash first no cap 😤"
+        exit 1
+    fi
+    version=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
+    echo "releasing v${version} as-is bestie 🕯️"
+    echo ""
+    git flow release start "${version}"
+    GIT_MERGE_AUTOEDIT=no git flow release finish "${version}" -m "v${version} dropped no cap 🔥"
+    echo ""
+    echo "=========================================="
+    echo "  gitflow release v${version} complete 🔥"
+    echo "=========================================="
+    echo ""
+    echo "now push everything to trigger the release pipeline:"
+    echo "  git push origin develop main v${version}"
+
+# start a hotfix — for when something is bricked in prod 🚑
+# usage: just hotfix patch (or minor, or major)
+hotfix part:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "fam your working tree is dirty, commit or stash first no cap 😤"
+        exit 1
+    fi
+    echo "starting hotfix — something in prod is not bussin 🚑"
+    just bump {{part}}
+    version=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
+    git flow hotfix start "${version}"
+    git add Directory.Build.props
+    git commit -m "bump: v${version} hotfix incoming 🚑"
+    echo ""
+    echo "hotfix/${version} branch created and version bumped 🔥"
+    echo "now make your fix, commit it, then run:"
+    echo "  just hotfix-finish"
+
+# finish a hotfix — git flow handles merge to main, tag, back-merge to develop 🏁
+hotfix-finish:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    branch=$(git rev-parse --abbrev-ref HEAD)
+    if [[ "$branch" != hotfix/* ]]; then
+        echo "bruh youre not on a hotfix branch — youre on '${branch}' rn 💀"
+        exit 1
+    fi
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "fam your working tree is dirty, commit or stash first no cap 😤"
+        exit 1
+    fi
+    version="${branch#hotfix/}"
+    echo "finishing hotfix v${version} 🏁"
+    GIT_MERGE_AUTOEDIT=no git flow hotfix finish "${version}" -m "v${version} hotfix dropped no cap 🔥"
+    echo ""
+    echo "=========================================="
+    echo "  hotfix v${version} complete 🚑🔥"
+    echo "=========================================="
+    echo ""
+    echo "now push everything:"
+    echo "  git push origin develop main v${version}"
 
 # manually yeet packages to nuget.org — for local dev releases / testing 📤
 nuget-push:

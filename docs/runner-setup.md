@@ -73,15 +73,27 @@ check your forgejo repo → settings → actions → runners to verify it shows 
 
 ### typical release flow
 ```bash
-# on your dev machine:
-just release patch          # bumps version, commits, tags
-git push && git push origin v0.1.1   # push code + tag to forgejo
+# on your dev machine (must have git flow CLI installed):
+just release patch          # gitflow: bump, release branch, merge, tag, cleanup
+git push origin develop main v0.1.1   # push everything to forgejo
 # forgejo runner takes it from here 🚀
+
+# or for the first release when version is already set:
+just release-current
+git push origin develop main v0.1.0
+```
+
+### hotfix flow
+```bash
+just hotfix patch           # start hotfix branch, bump version
+# make your fix, commit it
+just hotfix-finish          # git flow hotfix finish, merge, tag, cleanup
+git push origin develop main v0.1.1
 ```
 
 ## troubleshooting 🔧
 
-- **"bruh the tag says X but Directory.Build.props says Y"** — you tagged without bumping first. use `just release` which does both, or manually `just bump` then `just tag`
+- **"bruh the tag says X but Directory.Build.props says Y"** — you tagged without bumping first. use `just release` which does both
 - **nuget push fails with 403** — your `NUGET_API_KEY` is expired or doesnt have push scope. regenerate it on nuget.org
 - **gh release fails** — check that `GH_PAT` has `repo` scope and the github mirror repo exists at `phsk69/litty-logs-dotnet`
 - **runner not picking up jobs** — check `forgejo-runner daemon` is running and the runner shows as online in forgejo settings
