@@ -111,6 +111,16 @@ jobs:
           done
           echo "forgejo release is bussin 🔥"
 
+      - name: push to github mirror so the tag exists over there 🪞
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          git remote add github "https://x-access-token:${GH_PAT}@github.com/phsk69/litty-logs-dotnet.git" 2>/dev/null || \
+            git remote set-url github "https://x-access-token:${GH_PAT}@github.com/phsk69/litty-logs-dotnet.git"
+          git push github main "${TAG}"
+          echo "main and tag pushed to github mirror 🪞🔥"
+
       - name: create github release on the mirror 🪞
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
