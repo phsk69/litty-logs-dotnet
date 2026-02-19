@@ -54,7 +54,6 @@ src/LittyLogs.Webhooks/
 stuff that would go absolutely crazy but aint started yet. vibes only rn
 
 - 💬 **Slack webhook sink** — Block Kit formatter, similar pattern to Matrix/Teams
-- 💬 **Discord webhook sink** — embed format, similar to Slack
 - 🟣 **Matrix Client-Server API** — direct room messages with access token + room ID for power users who want full HTML control instead of hookshot
 - 🎨 **custom webhook templates** — user-defined message format strings so you can make it look however you want
 - 🗜️ **zstd compression** — for file sink rotation (gzip is cool but zstd is faster and smaller)

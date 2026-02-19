@@ -2,6 +2,52 @@
 
 all the glow ups and level ups for litty-logs no cap
 
+## [0.1.3] - 2026-02-19
+
+### the infrastructure arc — release pipeline went from bricked to bussin 🏗️🔥
+
+the whole release infra got a glow up. triple release pipeline (forgejo + github + nuget) actually works now, retryable without catching Ls, gitflow branches got the v-prefix drip, and the justfile recipes do everything for you. we tested the pipeline to DEATH with 0.1.0-dev through 0.1.2-dev and NOW it slays fr fr
+
+#### fixed — release pipeline wasnt releasing to github 💀
+- added a mirror push step that yeets main + tag to github BEFORE `gh release create` — cant create a release if the tag dont exist over there bro
+- forgejo release step was bash-executing the changelog (backticks became command substitution lmaooo) — fixed by passing notes through `RELEASE_NOTES` env var instead of raw `${{ }}` inline expansion
+
+#### fixed — release pipeline fully retryable 🔄
+- forgejo release: checks `GET /releases/tags/{tag}` first, skips creation if already exists, deletes + re-uploads assets on retry
+- github release: `gh release view` first, if exists uses `gh release upload --clobber` to overwrite assets
+- nuget: already had `--skip-duplicate` so it was chillin
+- git push mirror: naturally idempotent king 👑
+- re-run the workflow from the forgejo UI all day long, zero errors
+
+#### added — pre-release auto-detection 🧪
+- versions with `-` in them (like `0.1.0-dev`, `1.0.0-beta.1`) auto-flag releases as pre-release on both forgejo and github
+- no more shipping test releases as full releases thats not it
+
+#### added — v-prefix on gitflow branches 🏷️
+- `just release patch` now creates `release/v0.1.1` not `release/0.1.1`
+- `just hotfix patch` now creates `hotfix/v0.1.1` not `hotfix/0.1.1`
+- git flow creates `v0.1.1` tags automatically from the branch name — everything matches
+
+#### added — `just finish` universal recipe 🏁
+- auto-detects if youre on a hotfix, release, or support branch
+- runs `git flow {type} finish` with no autoedit
+- pushes develop + main + tag to origin automatically
+- one command to rule them all, no more copy-pasting push commands
+
+#### added — `just release-dev` recipe 🧪
+- `just release-dev patch` → `0.1.0` becomes `0.1.1-dev`
+- `just release-dev minor beta.1` → `0.1.0` becomes `0.2.0-beta.1`
+- full gitflow cycle: bump + label → start → finish → push → pipeline triggered
+- label defaults to `dev` if you dont specify
+
+#### changed — `just release` and `just release-current` auto-push 📤
+- no more "now push everything to trigger the pipeline" instructions
+- recipes push develop + main + tag automatically after finishing
+
+#### added — runner docs updated 📜
+- `jq` and `curl` added to required software table in `docs/runner-setup.md`
+- forgejo release step uses both for API calls and nobody told the runner docs 💀
+
 ## [0.1.0-dev] - 2026-02-19
 
 ### 🚨 TEST RELEASE — THIS AINT THE FINAL FORM BESTIE 🚨
