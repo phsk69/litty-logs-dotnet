@@ -199,28 +199,42 @@ hotfix part:
     echo "now make your fix, commit it, then run:"
     echo "  just hotfix-finish"
 
-# finish a hotfix — git flow handles merge to main, tag, back-merge to develop 🏁
-hotfix-finish:
+# finish whatever gitflow branch youre on — hotfix, release, or support 🏁
+# auto-detects the branch type and does the deed no cap
+finish:
     #!/usr/bin/env bash
     set -euo pipefail
     branch=$(git rev-parse --abbrev-ref HEAD)
-    if [[ "$branch" != hotfix/* ]]; then
-        echo "bruh youre not on a hotfix branch — youre on '${branch}' rn 💀"
-        exit 1
-    fi
     if [ -n "$(git status --porcelain)" ]; then
         echo "fam your working tree is dirty, commit or stash first no cap 😤"
         exit 1
     fi
-    version="${branch#hotfix/}"
-    echo "finishing hotfix v${version} 🏁"
-    GIT_MERGE_AUTOEDIT=no git flow hotfix finish "${version}" -m "v${version} hotfix dropped no cap 🔥"
+    if [[ "$branch" == hotfix/* ]]; then
+        version="${branch#hotfix/}"
+        echo "finishing hotfix v${version} 🚑🏁"
+        GIT_MERGE_AUTOEDIT=no git flow hotfix finish "${version}" -m "v${version} hotfix dropped no cap 🔥"
+        emoji="🚑"
+    elif [[ "$branch" == release/* ]]; then
+        version="${branch#release/}"
+        echo "finishing release v${version} 🚀🏁"
+        GIT_MERGE_AUTOEDIT=no git flow release finish "${version}" -m "v${version} dropped no cap 🔥"
+        emoji="🚀"
+    elif [[ "$branch" == support/* ]]; then
+        version="${branch#support/}"
+        echo "finishing support v${version} 🛠️🏁"
+        GIT_MERGE_AUTOEDIT=no git flow support finish "${version}" -m "v${version} support dropped no cap 🔥"
+        emoji="🛠️"
+    else
+        echo "bruh youre on '${branch}' — thats not a hotfix, release, or support branch 💀"
+        echo "get on the right branch first bestie"
+        exit 1
+    fi
     echo ""
     echo "=========================================="
-    echo "  hotfix v${version} complete 🚑🔥"
+    echo "  v${version} complete ${emoji}🔥"
     echo "=========================================="
     echo ""
-    echo "now push everything:"
+    echo "now push everything to trigger the pipeline:"
     echo "  git push origin develop main v${version}"
 
 # manually yeet packages to nuget.org — for local dev releases / testing 📤
