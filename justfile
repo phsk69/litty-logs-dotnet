@@ -133,18 +133,19 @@ release part:
     echo "starting the gitflow release ritual bestie 🕯️"
     echo "  ${current} -> ${new_version}"
     echo ""
-    git flow release start "${new_version}"
+    git flow release start "v${new_version}"
     sed -i "s|<Version>${current}</Version>|<Version>${new_version}</Version>|" "$props"
     git add "$props"
     git commit -m "bump: v${new_version} incoming no cap 🔥"
-    GIT_MERGE_AUTOEDIT=no git flow release finish "${new_version}" -m "v${new_version} dropped no cap 🔥"
+    GIT_MERGE_AUTOEDIT=no git flow release finish "v${new_version}" -m "v${new_version} dropped no cap 🔥"
     echo ""
     echo "=========================================="
-    echo "  gitflow release v${new_version} complete 🔥"
+    echo "  release v${new_version} complete 🔥"
     echo "=========================================="
     echo ""
-    echo "now push everything to trigger the release pipeline:"
-    echo "  git push origin develop main v${new_version}"
+    echo "pushing develop, main, and tag to origin 📤"
+    git push origin develop main "v${new_version}"
+    echo "everything is pushed — pipeline go brrr 🚀🔥"
 
 # release the current version as-is without bumping 🚀
 # for when Directory.Build.props already has the version you want (e.g. first release)
@@ -158,15 +159,55 @@ release-current:
     version=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
     echo "releasing v${version} as-is bestie 🕯️"
     echo ""
-    git flow release start "${version}"
-    GIT_MERGE_AUTOEDIT=no git flow release finish "${version}" -m "v${version} dropped no cap 🔥"
+    git flow release start "v${version}"
+    GIT_MERGE_AUTOEDIT=no git flow release finish "v${version}" -m "v${version} dropped no cap 🔥"
     echo ""
     echo "=========================================="
-    echo "  gitflow release v${version} complete 🔥"
+    echo "  release v${version} complete 🔥"
     echo "=========================================="
     echo ""
-    echo "now push everything to trigger the release pipeline:"
-    echo "  git push origin develop main v${version}"
+    echo "pushing develop, main, and tag to origin 📤"
+    git push origin develop main "v${version}"
+    echo "everything is pushed — pipeline go brrr 🚀🔥"
+
+# dev/pre-release — bump + slap a label on it and ship the whole thing 🧪
+# usage: just release-dev patch [label] — label defaults to "dev"
+# examples: just release-dev patch → 0.1.0 becomes 0.1.1-dev
+#           just release-dev minor beta.1 → 0.1.0 becomes 0.2.0-beta.1
+release-dev part label="dev":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "fam your working tree is dirty, commit or stash first no cap 😤"
+        exit 1
+    fi
+    props="Directory.Build.props"
+    current=$(grep -oP '(?<=<Version>)[^<]+' "$props")
+    base="${current%%-*}"
+    IFS='.' read -r major minor patch <<< "$base"
+    case "{{part}}" in
+        major) major=$((major + 1)); minor=0; patch=0 ;;
+        minor) minor=$((minor + 1)); patch=0 ;;
+        patch) patch=$((patch + 1)) ;;
+        *) echo "fam thats not a valid bump part — use major, minor, or patch no cap 😤"; exit 1 ;;
+    esac
+    new_version="${major}.${minor}.${patch}-{{label}}"
+    echo "starting dev release bestie 🧪"
+    echo "  ${current} -> ${new_version}"
+    echo ""
+    git flow release start "v${new_version}"
+    sed -i "s|<Version>${current}</Version>|<Version>${new_version}</Version>|" "$props"
+    git add "$props"
+    git commit -m "bump: v${new_version} dev release incoming 🧪"
+    GIT_MERGE_AUTOEDIT=no git flow release finish "v${new_version}" -m "v${new_version} dropped no cap 🔥"
+    echo ""
+    echo "=========================================="
+    echo "  dev release v${new_version} complete 🧪🔥"
+    echo "=========================================="
+    echo ""
+    echo "pushing develop, main, and tag to origin 📤"
+    git push origin develop main "v${new_version}"
+    echo "everything is pushed — pipeline go brrr 🚀🔥"
 
 # start a hotfix — for when something is bricked in prod 🚑
 # usage: just hotfix patch (or minor, or major)
@@ -190,17 +231,17 @@ hotfix part:
     new_version="${major}.${minor}.${patch}"
     echo "starting hotfix — something in prod is not bussin 🚑"
     echo "  ${current} -> ${new_version}"
-    git flow hotfix start "${new_version}"
+    git flow hotfix start "v${new_version}"
     sed -i "s|<Version>${current}</Version>|<Version>${new_version}</Version>|" "$props"
     git add "$props"
     git commit -m "bump: v${new_version} hotfix incoming 🚑"
     echo ""
-    echo "hotfix/${new_version} branch created and version bumped 🔥"
+    echo "hotfix/v${new_version} branch created and version bumped 🔥"
     echo "now make your fix, commit it, then run:"
-    echo "  just hotfix-finish"
+    echo "  just finish"
 
 # finish whatever gitflow branch youre on — hotfix, release, or support 🏁
-# auto-detects the branch type and does the deed no cap
+# auto-detects the branch type, finishes it, and pushes everything no cap
 finish:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -211,31 +252,34 @@ finish:
     fi
     if [[ "$branch" == hotfix/* ]]; then
         version="${branch#hotfix/}"
-        echo "finishing hotfix v${version} 🚑🏁"
-        GIT_MERGE_AUTOEDIT=no git flow hotfix finish "${version}" -m "v${version} hotfix dropped no cap 🔥"
+        kind="hotfix"
         emoji="🚑"
     elif [[ "$branch" == release/* ]]; then
         version="${branch#release/}"
-        echo "finishing release v${version} 🚀🏁"
-        GIT_MERGE_AUTOEDIT=no git flow release finish "${version}" -m "v${version} dropped no cap 🔥"
+        kind="release"
         emoji="🚀"
     elif [[ "$branch" == support/* ]]; then
         version="${branch#support/}"
-        echo "finishing support v${version} 🛠️🏁"
-        GIT_MERGE_AUTOEDIT=no git flow support finish "${version}" -m "v${version} support dropped no cap 🔥"
+        kind="support"
         emoji="🛠️"
     else
         echo "bruh youre on '${branch}' — thats not a hotfix, release, or support branch 💀"
         echo "get on the right branch first bestie"
         exit 1
     fi
+    # strip leading v if present so we dont double up
+    version_clean="${version#v}"
+    echo "finishing ${kind} v${version_clean} ${emoji}🏁"
+    GIT_MERGE_AUTOEDIT=no git flow "${kind}" finish "${version}" -m "v${version_clean} ${kind} dropped no cap 🔥"
     echo ""
     echo "=========================================="
-    echo "  v${version} complete ${emoji}🔥"
+    echo "  v${version_clean} complete ${emoji}🔥"
     echo "=========================================="
     echo ""
-    echo "now push everything to trigger the pipeline:"
-    echo "  git push origin develop main v${version}"
+    echo "pushing develop, main, and tag to origin 📤"
+    git push origin develop main "${version}"
+    echo ""
+    echo "everything is pushed — pipeline go brrr 🚀🔥"
 
 # manually yeet packages to nuget.org — for local dev releases / testing 📤
 nuget-push:
