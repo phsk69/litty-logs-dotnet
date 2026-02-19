@@ -10,7 +10,12 @@
     <PackageId>LittyLogs.Xunit</PackageId>
     <Description>xUnit integration for litty-logs. makes your test output bussin with gen alpha slang, emojis, and litty formatting through ITestOutputHelper. one line setup no cap 🔥</Description>
     <PackageTags>logging;xunit;testing;emoji;gen-alpha;litty;test-output</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="xunit.abstractions" Version="2.0.3" />

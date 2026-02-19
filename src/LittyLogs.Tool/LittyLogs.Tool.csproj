@@ -15,7 +15,12 @@
     <PackageId>LittyLogs.Tool</PackageId>
     <Description>dotnet litty — wraps dotnet build and dotnet test, rewrites all that boring output into gen alpha slang with emojis and ANSI colors. your terminal will never be the same no cap 🔥</Description>
     <PackageTags>dotnet-tool;testing;build;emoji;gen-alpha;litty;bussin;cli</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- reference main lib for ANSI color constants from LittyLogsFormatHelper -->

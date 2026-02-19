@@ -10,7 +10,12 @@
     <PackageId>LittyLogs.File</PackageId>
     <Description>file sink for litty-logs. yeets litty-fied logs to disk with rotation and gzip compression. text or JSON output, your choice bestie. emojis included no cap 🔥</Description>
     <PackageTags>logging;file;sink;rotation;gzip;emoji;gen-alpha;litty;structured</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.*" />

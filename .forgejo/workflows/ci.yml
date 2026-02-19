@@ -17,7 +17,7 @@ jobs:
       - name: litty build the whole solution bestie 🏗️🔥
         run: dotnet run --project src/LittyLogs.Tool -- build --configuration Release
 
-      - name: litty test — 104 vibes to check 🧪🔥
+      - name: litty test — check all the vibes 🧪🔥
         run: dotnet run --project src/LittyLogs.Tool -- test --configuration Release --no-build
 
       - name: pack to verify nupkgs build clean 📦
