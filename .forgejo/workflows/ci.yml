@@ -1,0 +1,27 @@
+# ci pipeline — makes sure nothing is bricked before we merge no cap 🔥
+name: ci
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  build-and-test:
+    runs-on: linux
+    steps:
+      - name: yoink the code 📥
+        uses: actions/checkout@v4
+
+      - name: litty build the whole solution bestie 🏗️🔥
+        run: dotnet run --project src/LittyLogs.Tool -- build --configuration Release
+
+      - name: litty test — check all the vibes 🧪🔥
+        run: dotnet run --project src/LittyLogs.Tool -- test --configuration Release --no-build
+
+      - name: pack to verify nupkgs build clean 📦
+        run: dotnet pack --configuration Release --no-build --output ./nupkgs
+
+      - name: flex the artifacts 💅
+        run: ls -la ./nupkgs/
