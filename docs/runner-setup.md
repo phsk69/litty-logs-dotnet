@@ -14,6 +14,8 @@ install all of these or the pipeline will be bricked fr fr:
 | **bash** | workflow scripts use bash shebangs | `bash --version` |
 | **grep** (with `-P`) | version extraction from XML | `grep -P --version` |
 | **awk** | changelog section extraction | `awk --version` |
+| **jq** | JSON-escapes changelog notes + parses forgejo API responses | `jq --version` |
+| **curl** | forgejo release API calls | `curl --version` |
 
 ### install commands (debian/ubuntu)
 
