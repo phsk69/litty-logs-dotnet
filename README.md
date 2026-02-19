@@ -245,12 +245,14 @@ six example projects in `examples/` so you can see litty-logs in every scenario:
 
 | example | what it shows | run it |
 |---|---|---|
-| `WebApi` | ASP.NET Core minimal api with request logging (pass `--json` for JSON mode) | `just example web` / `just example web --json` |
-| `HostedService` | background service doing vibe checks in a loop | `just example hosted` |
+| `WebApi` | startup demo with level-first → timestamp-first → JSON, then server runs | `just example web` |
+| `HostedService` | startup demo with both timestamp modes, then background service vibes | `just example hosted` |
 | `Console` | side-by-side text + JSON output comparison | `just example console` |
-| `Xunit` | litty-fied xUnit test output with all log levels | `just example xunit` |
-| `Json` | structured JSON logging with emojis — log aggregators eat good | `just example json` |
-| `FileSink` | file sink with text + JSON output, rotation config | `just example filesink` |
+| `Xunit` | litty-fied xUnit test output with all log levels + TimestampFirst test | `just example xunit` |
+| `Json` | structured JSON logging with both timestamp configs | `just example json` |
+| `FileSink` | file sink with level-first → timestamp-first → JSON, reads em all back | `just example filesink` |
+
+every example auto-showcases ALL the modes when you run it — no hidden flags, no secret handshakes. you run it, you see everything 💅
 
 ## development — for the contributing besties 🛠️
 
@@ -265,12 +267,14 @@ this project uses [just](https://just.systems) as the task runner. here are the 
 | `just litty-build` | build with litty-fied output 🔥 |
 | `just litty-test` | test with litty-fied output 🔥 |
 | `just pack` | pack all four NuGet packages |
+| `just clean` | yeet all build artifacts |
 | `just bump patch` | bump the patch version (also: `minor`, `major`) |
 | `just bump-pre dev.1` | slap a pre-release label on (e.g. `0.1.0-dev.1`) |
-| `just release patch` | gitflow release — bump + `git flow release start/finish` 🚀 |
+| `just release patch` | full gitflow release — bump, branch, finish, push 🚀 |
 | `just release-current` | gitflow release without bumping (for first release etc.) |
+| `just release-dev patch` | dev/pre-release — bump + label + ship (e.g. `0.1.1-dev`) 🧪 |
 | `just hotfix patch` | start a gitflow hotfix branch off main 🚑 |
-| `just hotfix-finish` | finish a hotfix — `git flow hotfix finish` |
+| `just finish` | finish whatever gitflow branch youre on (hotfix/release/support) + push 🏁 |
 | `just nuget-push` | manually push packages to nuget.org |
 | `just example <name>` | run an example — `web`, `hosted`, `console`, `xunit`, `json`, `filesink` 🔥 |
 | `just setup-completions` | install shell tab-completions for `just example <tab>` |
@@ -295,17 +299,20 @@ version lives in one place: `Directory.Build.props`. all four packages inherit f
 ### release flow (gitflow)
 
 ```bash
-# from develop — full gitflow ceremony (bump, release branch, merge, tag, cleanup)
-just release patch    # 0.1.0 → 0.1.1
+# from develop — full gitflow ceremony (bump, branch, finish, push — all in one command)
+just release patch    # 0.1.0 → 0.1.1, pushes everything, pipeline goes brrr
 just release minor    # 0.1.0 → 0.2.0
 just release major    # 0.1.0 → 1.0.0
 
-# or release the current version without bumping (e.g. first release)
-just release-current
+# dev/pre-release for testing the pipeline
+just release-dev patch         # 0.1.0 → 0.1.1-dev
+just release-dev minor beta.1  # 0.1.0 → 0.2.0-beta.1
 
-# push everything to trigger the CI/CD pipeline
-git push origin develop main v0.1.1
+# release the current version without bumping (e.g. first release)
+just release-current
 ```
+
+all release commands auto-push develop + main + tag to origin when done. no manual `git push` needed fr fr 🔥
 
 ### hotfix flow
 
@@ -313,21 +320,42 @@ git push origin develop main v0.1.1
 # from main — start a hotfix when something is bricked in prod
 just hotfix patch
 
-# make your fix, commit it, then finish
-just hotfix-finish
-
-# push everything
-git push origin develop main v0.1.1
+# make your fix, commit it, then finish + push
+just finish
 ```
 
-### CI/CD
+`just finish` auto-detects if youre on a hotfix, release, or support branch, does `git flow finish`, and pushes everything. one command to rule them all 🏁
 
-forgejo actions handles the pipeline on a self-hosted runner:
+### CI/CD — triple release pipeline 🚀
 
-- **CI** — builds, tests (with litty output 🔥), and packs on every push/PR to `develop` and `main`
-- **Release** — triggered by `v*` tags. builds, tests, packs, pushes to [nuget.org](https://nuget.org), and creates releases on both Forgejo and [GitHub](https://github.com/phsk69/litty-logs-dotnet/releases) with `.nupkg` assets attached 🔥
+forgejo actions on a self-hosted runner handles the whole squad:
 
-see [`docs/runner-setup.md`](docs/runner-setup.md) for runner setup instructions no cap
+- **CI** (`ci.yml`) — builds, tests (with litty output 🔥), and packs on every push/PR to `develop` and `main`. if this fails your code is bricked and you should not merge no cap
+- **Release** (`release.yml`) — triggered by `v*` tags. the full pipeline hits THREE destinations:
+  1. **nuget.org** — all four `.nupkg` files with `--skip-duplicate` so retries dont catch Ls
+  2. **forgejo releases** — via Gitea API with `.nupkg` assets attached 🏠
+  3. **github mirror releases** — via `gh` CLI with `.nupkg` assets on the [mirror repo](https://github.com/phsk69/litty-logs-dotnet/releases) 🐙
+
+pipeline features that go hard:
+- **fully retryable** — every step checks if work is already done before doing it again. re-run from the forgejo UI all day, zero errors 🔄
+- **pre-release auto-detection** — versions with `-` (like `0.1.0-dev`, `1.0.0-beta.1`) auto-flag as pre-release on both platforms 🧪
+- **changelog extraction** — release notes auto-pulled from `CHANGELOG.md` for that professional rizz 📜
+- **version sanity check** — tag must match `Directory.Build.props` or the pipeline tells you its not it 💀
+
+see [`docs/runner-setup.md`](docs/runner-setup.md) for runner setup and required secrets no cap
+
+## manifesting these features 🧠✨
+
+stuff that would go absolutely crazy but aint started yet. vibes only rn no cap
+
+- 🪝 **webhook sinks** (`LittyLogs.Webhooks`) — yeet logs to Matrix (hookshot), Teams (Adaptive Cards), and more. critical error hits the chat room formatted all nice instead of rotting in a log file
+- 💬 **Slack webhook sink** — Block Kit formatter for the Slack besties
+- 🟣 **Matrix Client-Server API** — direct room messages for power users who want full HTML control instead of hookshot
+- 🎨 **custom webhook templates** — user-defined message format strings so you can make it look however you want
+- 🗜️ **zstd compression** — for file sink rotation (gzip is cool but zstd is faster and smaller fr fr)
+- 📊 **structured log enrichment** — auto-attach machine name, environment, correlation IDs to webhook messages
+
+wanna see one of these happen? PRs are open bestie, or just vibe in the issues 💅
 
 ## license
 
