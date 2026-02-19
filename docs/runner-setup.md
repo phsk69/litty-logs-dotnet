@@ -1,6 +1,6 @@
 # 🔥 forgejo runner setup — getting the CI/CD drip installed
 
-this doc tells you how to set up the self-hosted forgejo runner so it can build, test, pack, and ship litty-logs to nuget.org and github releases no cap
+this doc tells you how to set up the self-hosted forgejo runner so it can build, test, pack, and ship litty-logs to all three destinations: nuget.org, forgejo releases, and github releases no cap
 
 ## required software on the runner 🧰
 
@@ -31,14 +31,19 @@ sudo apt install gh
 
 ## required forgejo secrets 🔐
 
-go to your forgejo repo → settings → secrets/variables → actions and add these:
+go to your forgejo repo → Settings → Actions → Secrets and add these:
 
-| secret name | what it is | where to get it |
-|-------------|-----------|-----------------|
-| `NUGET_API_KEY` | NuGet.org API key for publishing packages | nuget.org → API Keys → Create |
-| `GH_PAT` | GitHub Personal Access Token with `repo` scope | github.com → Settings → Developer Settings → Personal Access Tokens |
+| secret name | what it does | where to get it |
+|-------------|-------------|-----------------|
+| `GITHUB_TOKEN` | forgejo release creation + .nupkg asset upload via Gitea API | **auto-provided** by forgejo actions — youre already good bestie 💅 |
+| `GH_PAT` | github mirror release via `gh release create --repo phsk69/litty-logs-dotnet` | github.com → Settings → Developer Settings → Fine-grained Personal Access Tokens → generate for `phsk69/litty-logs-dotnet` with Contents read/write permission |
+| `NUGET_API_KEY` | push .nupkg files to nuget.org | nuget.org → API Keys → Create → scope: Push, glob pattern: `LittyLogs*` |
 
-the `GH_PAT` needs `repo` scope so it can create releases and upload assets on the github mirror. don't give it more perms than it needs bestie — principle of least privilege is bussin 🔒
+### notes on the secrets
+
+- **`GITHUB_TOKEN`** is auto-injected by forgejo actions into every workflow run. you dont need to create this manually, its just there. it handles creating the forgejo release and uploading .nupkg files as release assets 🏠
+- **`GH_PAT`** should be a fine-grained token scoped to ONLY `phsk69/litty-logs-dotnet` with Contents read/write. dont give it more perms than it needs — principle of least privilege is bussin 🔒
+- **`NUGET_API_KEY`** glob pattern `LittyLogs*` covers all four packages (LittyLogs, LittyLogs.Xunit, LittyLogs.File, LittyLogs.Tool). set an expiry and rotate it periodically bestie
 
 ## runner registration 🏃
 
@@ -57,7 +62,7 @@ forgejo-runner register \
 forgejo-runner daemon
 ```
 
-check your forgejo repo → settings → actions → runners to verify it shows up as online 🟢
+check your forgejo repo → Settings → Actions → Runners to verify it shows up as online 🟢
 
 ## how the pipelines work 🔄
 
@@ -68,24 +73,30 @@ check your forgejo repo → settings → actions → runners to verify it shows 
 
 ### Release (`release.yml`)
 - triggers when you push a `v*` tag (e.g. `v0.1.0`)
-- builds → tests → packs → pushes to nuget.org → creates github release
-- the tag version MUST match `Directory.Build.props` or it fails (sanity check)
+- the full pipeline hits three destinations:
+  1. **build + test + pack** — sanity check, tag version must match Directory.Build.props
+  2. **nuget.org** — pushes all four .nupkg files with `--skip-duplicate`
+  3. **forgejo release** — creates a release on forgejo via Gitea API, uploads .nupkg assets
+  4. **github release** — creates a release on the github mirror via `gh release create`, uploads .nupkg assets
+- changelog section gets auto-extracted from `CHANGELOG.md` for release notes
 
 ### typical release flow
 ```bash
 # on your dev machine (must have git flow CLI installed):
-just release patch          # gitflow: bump, release branch, merge, tag, cleanup
+just release patch          # gitflow: branch, bump, commit, merge, tag, cleanup
 git push origin develop main v0.1.1   # push everything to forgejo
-# forgejo runner takes it from here 🚀
+# forgejo runner takes it from here — nuget + forgejo release + github release 🚀
+```
 
-# or for the first release when version is already set:
+### first release (version already set)
+```bash
 just release-current
 git push origin develop main v0.1.0
 ```
 
 ### hotfix flow
 ```bash
-just hotfix patch           # start hotfix branch, bump version
+just hotfix patch           # start hotfix branch, bump version on branch
 # make your fix, commit it
 just hotfix-finish          # git flow hotfix finish, merge, tag, cleanup
 git push origin develop main v0.1.1
@@ -93,7 +104,9 @@ git push origin develop main v0.1.1
 
 ## troubleshooting 🔧
 
-- **"bruh the tag says X but Directory.Build.props says Y"** — you tagged without bumping first. use `just release` which does both
+- **"fam your working tree is dirty"** — commit or stash your changes before running release/hotfix commands
+- **"bruh the tag says X but Directory.Build.props says Y"** — version mismatch. make sure `just release` finished cleanly
 - **nuget push fails with 403** — your `NUGET_API_KEY` is expired or doesnt have push scope. regenerate it on nuget.org
-- **gh release fails** — check that `GH_PAT` has `repo` scope and the github mirror repo exists at `phsk69/litty-logs-dotnet`
+- **gh release fails** — check that `GH_PAT` has Contents read/write on `phsk69/litty-logs-dotnet` and the repo exists
+- **forgejo release fails** — check the Gitea API response in the workflow logs. usually a token permissions issue
 - **runner not picking up jobs** — check `forgejo-runner daemon` is running and the runner shows as online in forgejo settings

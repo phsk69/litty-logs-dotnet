@@ -110,7 +110,7 @@ bump-pre label:
     sed -i "s|<Version>${current}</Version>|<Version>${new_version}</Version>|" "$props"
     echo "version went from ${current} -> ${new_version} (pre-release mode activated) 🧪"
 
-# gitflow release — bump + git flow release start/finish 🚀
+# gitflow release — start branch clean, bump on the branch, finish 🚀
 # usage: just release patch (or minor, or major)
 release part:
     #!/usr/bin/env bash
@@ -119,21 +119,32 @@ release part:
         echo "fam your working tree is dirty, commit or stash first no cap 😤"
         exit 1
     fi
+    props="Directory.Build.props"
+    current=$(grep -oP '(?<=<Version>)[^<]+' "$props")
+    base="${current%%-*}"
+    IFS='.' read -r major minor patch <<< "$base"
+    case "{{part}}" in
+        major) major=$((major + 1)); minor=0; patch=0 ;;
+        minor) minor=$((minor + 1)); patch=0 ;;
+        patch) patch=$((patch + 1)) ;;
+        *) echo "fam thats not a valid bump part — use major, minor, or patch no cap 😤"; exit 1 ;;
+    esac
+    new_version="${major}.${minor}.${patch}"
     echo "starting the gitflow release ritual bestie 🕯️"
+    echo "  ${current} -> ${new_version}"
     echo ""
-    just bump {{part}}
-    version=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
-    git flow release start "${version}"
-    git add Directory.Build.props
-    git commit -m "bump: v${version} incoming no cap 🔥"
-    GIT_MERGE_AUTOEDIT=no git flow release finish "${version}" -m "v${version} dropped no cap 🔥"
+    git flow release start "${new_version}"
+    sed -i "s|<Version>${current}</Version>|<Version>${new_version}</Version>|" "$props"
+    git add "$props"
+    git commit -m "bump: v${new_version} incoming no cap 🔥"
+    GIT_MERGE_AUTOEDIT=no git flow release finish "${new_version}" -m "v${new_version} dropped no cap 🔥"
     echo ""
     echo "=========================================="
-    echo "  gitflow release v${version} complete 🔥"
+    echo "  gitflow release v${new_version} complete 🔥"
     echo "=========================================="
     echo ""
     echo "now push everything to trigger the release pipeline:"
-    echo "  git push origin develop main v${version}"
+    echo "  git push origin develop main v${new_version}"
 
 # release the current version as-is without bumping 🚀
 # for when Directory.Build.props already has the version you want (e.g. first release)
@@ -166,14 +177,25 @@ hotfix part:
         echo "fam your working tree is dirty, commit or stash first no cap 😤"
         exit 1
     fi
+    props="Directory.Build.props"
+    current=$(grep -oP '(?<=<Version>)[^<]+' "$props")
+    base="${current%%-*}"
+    IFS='.' read -r major minor patch <<< "$base"
+    case "{{part}}" in
+        major) major=$((major + 1)); minor=0; patch=0 ;;
+        minor) minor=$((minor + 1)); patch=0 ;;
+        patch) patch=$((patch + 1)) ;;
+        *) echo "fam thats not a valid bump part — use major, minor, or patch no cap 😤"; exit 1 ;;
+    esac
+    new_version="${major}.${minor}.${patch}"
     echo "starting hotfix — something in prod is not bussin 🚑"
-    just bump {{part}}
-    version=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
-    git flow hotfix start "${version}"
-    git add Directory.Build.props
-    git commit -m "bump: v${version} hotfix incoming 🚑"
+    echo "  ${current} -> ${new_version}"
+    git flow hotfix start "${new_version}"
+    sed -i "s|<Version>${current}</Version>|<Version>${new_version}</Version>|" "$props"
+    git add "$props"
+    git commit -m "bump: v${new_version} hotfix incoming 🚑"
     echo ""
-    echo "hotfix/${version} branch created and version bumped 🔥"
+    echo "hotfix/${new_version} branch created and version bumped 🔥"
     echo "now make your fix, commit it, then run:"
     echo "  just hotfix-finish"
 
