@@ -46,7 +46,7 @@ jobs:
       - name: litty test one more time for the culture 🧪🔥
         run: dotnet run --project src/LittyLogs.Tool -- test --configuration Release --no-build
 
-      - name: pack all the nupkgs 📦
+      - name: pack all the nuggies 📦
         run: dotnet pack --configuration Release --no-build --output ./nupkgs
 
       - name: flex what we packed 💅
@@ -77,7 +77,7 @@ jobs:
             echo "CHANGELOG_EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: create forgejo release — home turf first 🏠🔥
+      - name: create or reuse forgejo release 🏠🔥
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
@@ -88,26 +88,46 @@ jobs:
           PRERELEASE="${{ steps.version.outputs.prerelease }}"
           API_URL="${GITHUB_SERVER_URL}/api/v1"
           REPO="${GITHUB_REPOSITORY}"
-          # create the release
-          RELEASE_ID=$(curl -s -X POST \
+          # check if release already exists (retryable — no duplicate Ls)
+          HTTP_CODE=$(curl -s -o /tmp/release.json -w "%{http_code}" \
             -H "Authorization: token ${GITHUB_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "{\"tag_name\": \"${TAG}\", \"name\": \"v${VERSION} — new drop 🔥\", \"body\": $(echo "$NOTES" | jq -Rs .), \"prerelease\": ${PRERELEASE}}" \
-            "${API_URL}/repos/${REPO}/releases" | jq -r '.id')
-          if [ "$RELEASE_ID" = "null" ] || [ -z "$RELEASE_ID" ]; then
-            echo "bruh forgejo release creation failed 💀"
-            exit 1
+            "${API_URL}/repos/${REPO}/releases/tags/${TAG}")
+          if [ "$HTTP_CODE" = "200" ]; then
+            RELEASE_ID=$(jq -r '.id' /tmp/release.json)
+            echo "forgejo release already exists (id ${RELEASE_ID}) — skipping creation 💅"
+          else
+            echo "creating forgejo release 🏗️"
+            RELEASE_ID=$(curl -s -X POST \
+              -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"tag_name\": \"${TAG}\", \"name\": \"v${VERSION} — new drop 🔥\", \"body\": $(echo "$NOTES" | jq -Rs .), \"prerelease\": ${PRERELEASE}}" \
+              "${API_URL}/repos/${REPO}/releases" | jq -r '.id')
+            if [ "$RELEASE_ID" = "null" ] || [ -z "$RELEASE_ID" ]; then
+              echo "bruh forgejo release creation failed 💀"
+              exit 1
+            fi
+            echo "forgejo release created (id ${RELEASE_ID}) 🔥"
           fi
-          echo "forgejo release created with id ${RELEASE_ID} 🔥"
-          # upload the nupkg assets
+          # re-fetch release to get fresh asset list
+          curl -s -o /tmp/release.json \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            "${API_URL}/repos/${REPO}/releases/${RELEASE_ID}"
+          # upload assets — delete existing dupes first so retries dont brick
           for pkg in ./nupkgs/*.nupkg; do
             filename=$(basename "$pkg")
-            echo "uploading ${filename} to forgejo release 📤"
+            ASSET_ID=$(jq -r ".assets[] | select(.name==\"${filename}\") | .id // empty" /tmp/release.json 2>/dev/null)
+            if [ -n "$ASSET_ID" ]; then
+              echo "deleting old ${filename} asset before re-upload 🗑️"
+              curl -s -X DELETE \
+                -H "Authorization: token ${GITHUB_TOKEN}" \
+                "${API_URL}/repos/${REPO}/releases/${RELEASE_ID}/assets/${ASSET_ID}" > /dev/null
+            fi
+            echo "uploading ${filename} 📤"
             curl -s -X POST \
               -H "Authorization: token ${GITHUB_TOKEN}" \
               -H "Content-Type: application/octet-stream" \
               --data-binary "@${pkg}" \
-              "${API_URL}/repos/${REPO}/releases/${RELEASE_ID}/assets?name=${filename}"
+              "${API_URL}/repos/${REPO}/releases/${RELEASE_ID}/assets?name=${filename}" > /dev/null
           done
           echo "forgejo release is bussin 🔥"
 
@@ -121,7 +141,7 @@ jobs:
           git push github main "${TAG}"
           echo "main and tag pushed to github mirror 🪞🔥"
 
-      - name: create github release on the mirror 🪞
+      - name: create or reuse github release on the mirror 🪞
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
           RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
@@ -132,9 +152,19 @@ jobs:
           if [ "${{ steps.version.outputs.prerelease }}" = "true" ]; then
             PRERELEASE_FLAG="--prerelease"
           fi
-          gh release create "${TAG}" \
-            --repo "phsk69/litty-logs-dotnet" \
-            --title "v${VERSION} — new drop 🔥" \
-            --notes "$RELEASE_NOTES" \
-            $PRERELEASE_FLAG \
-            ./nupkgs/*.nupkg
+          # check if release already exists (retryable — no duplicate Ls)
+          if gh release view "${TAG}" --repo "phsk69/litty-logs-dotnet" &>/dev/null; then
+            echo "github release already exists — re-uploading assets 💅"
+            gh release upload "${TAG}" ./nupkgs/*.nupkg \
+              --repo "phsk69/litty-logs-dotnet" \
+              --clobber
+          else
+            echo "creating github release 🏗️"
+            gh release create "${TAG}" \
+              --repo "phsk69/litty-logs-dotnet" \
+              --title "v${VERSION} — new drop 🔥" \
+              --notes "$RELEASE_NOTES" \
+              $PRERELEASE_FLAG \
+              ./nupkgs/*.nupkg
+          fi
+          echo "github release is bussin 🔥"
