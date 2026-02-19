@@ -8,7 +8,7 @@ on:
 
 jobs:
   release:
-    runs-on: self-hosted
+    runs-on: linux
     steps:
       - name: yoink the code 📥
         uses: actions/checkout@v4
@@ -22,7 +22,14 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          echo "version is ${VERSION} lets gooo 🔥"
+          # auto-detect pre-release — if version has a dash its not the final form 🚨
+          if [[ "$VERSION" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "version is ${VERSION} (pre-release) — test drop incoming 🧪"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "version is ${VERSION} lets gooo 🔥"
+          fi
 
       - name: sanity check — make sure tag matches Directory.Build.props 🧐
         run: |
@@ -39,7 +46,7 @@ jobs:
       - name: litty test one more time for the culture 🧪🔥
         run: dotnet run --project src/LittyLogs.Tool -- test --configuration Release --no-build
 
-      - name: pack all three nupkgs 📦
+      - name: pack all the nupkgs 📦
         run: dotnet pack --configuration Release --no-build --output ./nupkgs
 
       - name: flex what we packed 💅
@@ -73,17 +80,19 @@ jobs:
       - name: create forgejo release — home turf first 🏠🔥
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
-          NOTES="${{ steps.changelog.outputs.notes }}"
+          NOTES="$RELEASE_NOTES"
+          PRERELEASE="${{ steps.version.outputs.prerelease }}"
           API_URL="${GITHUB_SERVER_URL}/api/v1"
           REPO="${GITHUB_REPOSITORY}"
           # create the release
           RELEASE_ID=$(curl -s -X POST \
             -H "Authorization: token ${GITHUB_TOKEN}" \
             -H "Content-Type: application/json" \
-            -d "{\"tag_name\": \"${TAG}\", \"name\": \"v${VERSION} — new drop 🔥\", \"body\": $(echo "$NOTES" | jq -Rs .)}" \
+            -d "{\"tag_name\": \"${TAG}\", \"name\": \"v${VERSION} — new drop 🔥\", \"body\": $(echo "$NOTES" | jq -Rs .), \"prerelease\": ${PRERELEASE}}" \
             "${API_URL}/repos/${REPO}/releases" | jq -r '.id')
           if [ "$RELEASE_ID" = "null" ] || [ -z "$RELEASE_ID" ]; then
             echo "bruh forgejo release creation failed 💀"
@@ -105,11 +114,17 @@ jobs:
       - name: create github release on the mirror 🪞
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
+          RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
+          PRERELEASE_FLAG=""
+          if [ "${{ steps.version.outputs.prerelease }}" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
           gh release create "${TAG}" \
             --repo "phsk69/litty-logs-dotnet" \
             --title "v${VERSION} — new drop 🔥" \
-            --notes "${{ steps.changelog.outputs.notes }}" \
+            --notes "$RELEASE_NOTES" \
+            $PRERELEASE_FLAG \
             ./nupkgs/*.nupkg
