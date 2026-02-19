@@ -38,13 +38,13 @@ go to your forgejo repo → Settings → Actions → Secrets and add these:
 | secret name | what it does | where to get it |
 |-------------|-------------|-----------------|
 | `GITHUB_TOKEN` | forgejo release creation + .nupkg asset upload via Gitea API | **auto-provided** by forgejo actions — youre already good bestie 💅 |
-| `GH_PAT` | github mirror release via `gh release create --repo phsk69/litty-logs-dotnet` | github.com → Settings → Developer Settings → Fine-grained Personal Access Tokens → generate for `phsk69/litty-logs-dotnet` with Contents read/write permission |
+| `GH_PAT` | github release creation via `gh release create` on the mirror repo (forgejo push mirroring handles the git sync) | github.com → Settings → Developer Settings → Fine-grained Personal Access Tokens → generate for `phsk69/litty-logs-dotnet` with Contents read/write permission |
 | `NUGET_API_KEY` | push .nupkg files to nuget.org | nuget.org → API Keys → Create → scope: Push, glob pattern: `LittyLogs*` |
 
 ### notes on the secrets
 
 - **`GITHUB_TOKEN`** is auto-injected by forgejo actions into every workflow run. you dont need to create this manually, its just there. it handles creating the forgejo release and uploading .nupkg files as release assets 🏠
-- **`GH_PAT`** should be a fine-grained token scoped to ONLY `phsk69/litty-logs-dotnet` with Contents read/write. dont give it more perms than it needs — principle of least privilege is bussin 🔒
+- **`GH_PAT`** should be a fine-grained token scoped to ONLY `phsk69/litty-logs-dotnet` with Contents read/write. this is only used for `gh release create` API calls — forgejo push mirroring (Settings → Mirror) handles syncing git refs to github automatically. dont give it more perms than it needs — principle of least privilege is bussin 🔒
 - **`NUGET_API_KEY`** glob pattern `LittyLogs*` covers all four packages (LittyLogs, LittyLogs.Xunit, LittyLogs.File, LittyLogs.Tool). set an expiry and rotate it periodically bestie
 
 ## runner registration 🏃
@@ -75,34 +75,35 @@ check your forgejo repo → Settings → Actions → Runners to verify it shows 
 
 ### Release (`release.yml`)
 - triggers when you push a `v*` tag (e.g. `v0.1.0`)
-- the full pipeline hits three destinations:
+- forgejo push mirroring auto-syncs the tag + branches to github (Settings → Mirror)
+- the pipeline hits three destinations:
   1. **build + test + pack** — sanity check, tag version must match Directory.Build.props
   2. **nuget.org** — pushes all four .nupkg files with `--skip-duplicate`
   3. **forgejo release** — creates a release on forgejo via Gitea API, uploads .nupkg assets
-  4. **github release** — creates a release on the github mirror via `gh release create`, uploads .nupkg assets
+  4. **github release** — waits for mirror sync, then creates a release via `gh release create`, uploads .nupkg assets
 - changelog section gets auto-extracted from `CHANGELOG.md` for release notes
+- every step is retryable — re-run the workflow from the UI all day, zero errors 🔄
 
 ### typical release flow
 ```bash
 # on your dev machine (must have git flow CLI installed):
-just release patch          # gitflow: branch, bump, commit, merge, tag, cleanup
-git push origin develop main v0.1.1   # push everything to forgejo
+just release patch          # gitflow: bump, branch, finish, push — all in one command
 # forgejo runner takes it from here — nuget + forgejo release + github release 🚀
 ```
 
 ### first release (version already set)
 ```bash
-just release-current
-git push origin develop main v0.1.0
+just release-current        # gitflow release without bumping, pushes everything
 ```
 
 ### hotfix flow
 ```bash
 just hotfix patch           # start hotfix branch, bump version on branch
 # make your fix, commit it
-just hotfix-finish          # git flow hotfix finish, merge, tag, cleanup
-git push origin develop main v0.1.1
+just finish                 # auto-detects branch type, finishes + pushes everything
 ```
+
+all release commands auto-push develop + main + tag to origin. no manual `git push` needed fr fr 🔥
 
 ## troubleshooting 🔧
 
