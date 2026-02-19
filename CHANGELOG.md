@@ -2,6 +2,48 @@
 
 all the glow ups and level ups for litty-logs no cap
 
+## [Unreleased]
+
+### the expansion pack era — JSON logging + file sink + RFC 5424 compliance dropped 🔥📁
+
+the squad got BIGGER bestie. structured JSON output for log aggregators and a file sink with async I/O, rotation, and gzip compression. emojis everywhere because JSON is UTF-8 native no cap 🏆
+
+#### added — JSON structured logging (in core `LittyLogs` package)
+- `LittyLogsJsonFormatter` — console formatter that outputs fire JSON instead of plain text 🍽️
+- `FormatJsonLine()` in the shared brain — `Utf8JsonWriter` based, zero-alloc king energy 👑
+- `AddLittyJsonLogs()` extension method — one liner for structured JSON console output
+- emojis serialize perfectly in JSON fields — `emoji`, `level`, `category`, `message`, `eventId`, `exception`
+- framework message rewrites with emojis land in the JSON too no cap 🔥
+
+#### added — file sink (`LittyLogs.File`)
+- `LittyFileLogsProvider` + `LittyFileLogger` — ILoggerProvider that yeets litty logs to disk 📁
+- `LittyFileWriter` — async I/O engine using `Channel<string>` (bounded 10k), non-blocking writes 👑
+- `AddLittyFileLogs()` extension methods — one liner file logging setup
+- text or JSON output format — your choice bestie
+- size-based rotation — when the file gets too thicc, we rotate 🔄
+- time-based rotation — daily or hourly intervals 📅
+- gzip compression — old rotated files auto-compress to `.gz` using BCL `GZipStream` (zero deps) 🗜️
+- startup safeguard — NEVER auto-rotates on startup, only before writing the next entry 🔒
+- no ANSI codes in file output — terminal escape chars in files is cursed 💀
+
+#### added — examples
+- `LittyLogs.Example.Json` — JSON logging example showing structured output with emojis
+- `LittyLogs.Example.FileSink` — file sink example with text + JSON output and rotation
+
+#### changed — RFC 5424 level labels
+- log level labels now use RFC 5424 syslog severity keywords for maximum log aggregator compatibility 🔥
+- `TRACE` → `trace`, `DBG` → `debug`, `INFO` → `info`, `WARN` → `warning`, `ERR` → `err`, `CRIT` → `crit`
+- Loki, Datadog, Splunk etc gonna recognize these instantly no cap 🔍
+
+#### changed — JSON unicode encoding
+- JSON output now uses `UnsafeRelaxedJsonEscaping` so emojis and special chars are literal UTF-8
+- `\u2620\uFE0F` → `☠️`, `\u002B` → `+`, `\u2014` → `—` — your Loki emoji searches actually hit now 🔍
+- supplementary plane emojis still get the surrogate pair post-processor treatment 💅
+
+#### added — dev experience
+- `just example-json` and `just example-filesink` recipes
+- `just pack` now builds four packages (added LittyLogs.File)
+
 ## [0.1.0] - 2026-02-18
 
 ### the genesis era — the whole squad dropped at once 🌅🔥

@@ -32,4 +32,28 @@ public static class LittyLoggingExtensions
         builder.Services.Configure(configure);
         return builder;
     }
+
+    /// <summary>
+    /// adds litty-fied JSON console logging. same rewrites and emojis,
+    /// but structured as fire JSON for log aggregators to eat 🍽️
+    /// one liner setup: builder.Logging.AddLittyJsonLogs() and youre eating no cap
+    /// </summary>
+    public static ILoggingBuilder AddLittyJsonLogs(this ILoggingBuilder builder)
+    {
+        builder.AddConsole(options => options.FormatterName = "litty-json");
+        builder.AddConsoleFormatter<LittyLogsJsonFormatter, LittyLogsOptions>();
+        return builder;
+    }
+
+    /// <summary>
+    /// adds litty JSON logs with custom options for when you need to configure the vibe ✨
+    /// </summary>
+    public static ILoggingBuilder AddLittyJsonLogs(
+        this ILoggingBuilder builder,
+        Action<LittyLogsOptions> configure)
+    {
+        builder.AddLittyJsonLogs();
+        builder.Services.Configure(configure);
+        return builder;
+    }
 }

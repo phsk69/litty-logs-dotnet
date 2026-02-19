@@ -2,8 +2,17 @@ using LittyLogs;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// one line to litty-fy ALL your logs no cap 🔥
-builder.Logging.AddLittyLogs();
+// pass --json to get structured JSON output, otherwise text mode 🔥
+if (args.Contains("--json"))
+{
+    Console.WriteLine("running in JSON mode — log aggregators gonna eat GOOD 🍽️");
+    builder.Logging.AddLittyJsonLogs();
+}
+else
+{
+    Console.WriteLine("running in text mode — the OG litty experience 🔥 (use --json for structured output)");
+    builder.Logging.AddLittyLogs();
+}
 
 var app = builder.Build();
 

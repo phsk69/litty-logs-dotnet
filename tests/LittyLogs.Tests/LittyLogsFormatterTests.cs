@@ -64,12 +64,12 @@ public class LittyLogsFormatterTests
     }
 
     [Theory]
-    [InlineData(LogLevel.Trace, "TRACE")]
-    [InlineData(LogLevel.Debug, "DBG")]
-    [InlineData(LogLevel.Information, "INFO")]
-    [InlineData(LogLevel.Warning, "WARN")]
-    [InlineData(LogLevel.Error, "ERR")]
-    [InlineData(LogLevel.Critical, "CRIT")]
+    [InlineData(LogLevel.Trace, "trace")]
+    [InlineData(LogLevel.Debug, "debug")]
+    [InlineData(LogLevel.Information, "info")]
+    [InlineData(LogLevel.Warning, "warning")]
+    [InlineData(LogLevel.Error, "err")]
+    [InlineData(LogLevel.Critical, "crit")]
     public void Write_EmitsCorrectLevelLabel(LogLevel level, string expectedLabel)
     {
         // level labels gotta be concise bestie
@@ -228,7 +228,7 @@ public class LittyLogsFormatterTests
             "TestCategory",
             "🔥 ICS feed generated, absolutely ate");
 
-        Assert.Contains("🔥 INFO", output);  // formatter prefix
+        Assert.Contains("🔥 info", output);  // formatter prefix
         Assert.Contains("🔥 ICS feed generated", output);  // message emoji preserved
     }
 

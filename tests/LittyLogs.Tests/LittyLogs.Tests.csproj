@@ -21,6 +21,7 @@
     <ProjectReference Include="..\..\src\LittyLogs\LittyLogs.csproj" />
     <ProjectReference Include="..\..\src\LittyLogs.Xunit\LittyLogs.Xunit.csproj" />
     <ProjectReference Include="..\..\src\LittyLogs.Tool\LittyLogs.Tool.csproj" />
+    <ProjectReference Include="..\..\src\LittyLogs.File\LittyLogs.File.csproj" />
   </ItemGroup>
 
 </Project>

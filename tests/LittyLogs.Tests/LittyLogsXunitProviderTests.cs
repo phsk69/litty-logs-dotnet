@@ -56,12 +56,12 @@ public class LittyLogsXunitProviderTests
     }
 
     [Theory]
-    [InlineData(LogLevel.Trace, "TRACE")]
-    [InlineData(LogLevel.Debug, "DBG")]
-    [InlineData(LogLevel.Information, "INFO")]
-    [InlineData(LogLevel.Warning, "WARN")]
-    [InlineData(LogLevel.Error, "ERR")]
-    [InlineData(LogLevel.Critical, "CRIT")]
+    [InlineData(LogLevel.Trace, "trace")]
+    [InlineData(LogLevel.Debug, "debug")]
+    [InlineData(LogLevel.Information, "info")]
+    [InlineData(LogLevel.Warning, "warning")]
+    [InlineData(LogLevel.Error, "err")]
+    [InlineData(LogLevel.Critical, "crit")]
     public void Logger_EmitsCorrectLevelLabel(LogLevel level, string expectedLabel)
     {
         using var provider = new LittyLogsXunitProvider(_mockOutput.Object);

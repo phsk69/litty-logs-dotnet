@@ -1,4 +1,8 @@
+using System.Buffers;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 
 namespace LittyLogs;
@@ -25,12 +29,12 @@ public static class LittyLogsFormatHelper
     /// </summary>
     public static (string Emoji, string Label, string Color) GetLevelInfo(LogLevel level) => level switch
     {
-        LogLevel.Trace       => ("👀", "TRACE", Cyan),
-        LogLevel.Debug       => ("🔍", "DBG",   Blue),
-        LogLevel.Information => ("🔥", "INFO",  Green),
-        LogLevel.Warning     => ("😤", "WARN",  Yellow),
-        LogLevel.Error       => ("💀", "ERR",   Red),
-        LogLevel.Critical    => ("☠️",  "CRIT",  BrightRed),
+        LogLevel.Trace       => ("👀", "trace",   Cyan),
+        LogLevel.Debug       => ("🔍", "debug",   Blue),
+        LogLevel.Information => ("🔥", "info",    Green),
+        LogLevel.Warning     => ("😤", "warning", Yellow),
+        LogLevel.Error       => ("💀", "err",     Red),
+        LogLevel.Critical    => ("☠️",  "crit",    BrightRed),
         _                    => ("❓", "???",   Reset)
     };
 
@@ -101,5 +105,99 @@ public static class LittyLogsFormatHelper
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// formats a single JSON log line with all the litty fields.
+    /// uses Utf8JsonWriter for that zero-alloc king energy 👑
+    /// emojis serialize perfectly because JSON is UTF-8 native bestie 🔥
+    /// </summary>
+    public static string FormatJsonLine(
+        LogLevel level,
+        string category,
+        string? message,
+        Exception? exception,
+        EventId eventId,
+        LittyLogsOptions options)
+    {
+        var (emoji, levelLabel, _) = GetLevelInfo(level);
+
+        var displayCategory = options.ShortenCategories
+            ? ShortenCategory(category)
+            : category;
+
+        var now = options.UseUtcTimestamp ? DateTimeOffset.UtcNow : DateTimeOffset.Now;
+        var timestampFmt = options.TimestampFormat ?? "yyyy-MM-ddTHH:mm:ss.fffK";
+        var timestamp = now.ToString(timestampFmt);
+
+        var buffer = new ArrayBufferWriter<byte>();
+        using var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions
+        {
+            // no indentation — one JSON object per line, compact and bussin
+            // UnsafeRelaxedJsonEscaping keeps BMP chars literal (emojis, em dashes, plus signs)
+            // so Loki/Grafana can actually search by emoji in raw JSON text 🔍
+            // supplementary plane emojis (above U+FFFF) still get surrogate pair escaped
+            // by Utf8JsonWriter regardless — UnescapeSurrogatePairs() handles those in post 💅
+            Indented = false,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+
+        writer.WriteStartObject();
+        writer.WriteString("timestamp", timestamp);
+        writer.WriteString("level", levelLabel);
+        writer.WriteString("emoji", emoji);
+        writer.WriteString("category", displayCategory);
+
+        if (message is not null)
+            writer.WriteString("message", message);
+
+        if (eventId.Id != 0 || eventId.Name is not null)
+        {
+            writer.WriteStartObject("eventId");
+            writer.WriteNumber("id", eventId.Id);
+            if (eventId.Name is not null)
+                writer.WriteString("name", eventId.Name);
+            writer.WriteEndObject();
+        }
+
+        if (exception is not null)
+        {
+            writer.WriteStartObject("exception");
+            writer.WriteString("type", exception.GetType().FullName);
+            writer.WriteString("message", exception.Message);
+            writer.WriteString("stackTrace", exception.StackTrace);
+            if (exception.InnerException is not null)
+                writer.WriteString("innerException", exception.InnerException.ToString());
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndObject();
+        writer.Flush();
+
+        var json = Encoding.UTF8.GetString(buffer.WrittenSpan);
+
+        // UnsafeRelaxedJsonEscaping handles BMP chars but Utf8JsonWriter still escapes
+        // supplementary plane emojis (above U+FFFF) as surrogate pairs like \uD83D\uDD25
+        // we convert those back to literal UTF-8 so Loki searches actually hit on emojis 🔥
+        return UnescapeSurrogatePairs(json);
+    }
+
+    /// <summary>
+    /// converts JSON surrogate pair escapes (\uD83D\uDD25) back to literal UTF-8 characters (🔥).
+    /// even with UnsafeRelaxedJsonEscaping, Utf8JsonWriter still escapes supplementary plane chars
+    /// (above U+FFFF) as surrogate pairs. we need literal emojis so Loki can search em bestie 💅
+    /// </summary>
+    private static readonly Regex SurrogatePairRegex = new(
+        @"\\u([dD][89aAbB][0-9a-fA-F]{2})\\u([dD][cCdDeEfF][0-9a-fA-F]{2})",
+        RegexOptions.Compiled);
+
+    private static string UnescapeSurrogatePairs(string json)
+    {
+        return SurrogatePairRegex.Replace(json, match =>
+        {
+            var hi = Convert.ToInt32(match.Groups[1].Value, 16);
+            var lo = Convert.ToInt32(match.Groups[2].Value, 16);
+            return char.ConvertFromUtf32(char.ConvertToUtf32((char)hi, (char)lo));
+        });
     }
 }

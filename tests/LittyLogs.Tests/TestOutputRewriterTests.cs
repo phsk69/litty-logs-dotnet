@@ -210,7 +210,7 @@ public class TestOutputRewriterTests
     public void TryRewrite_TestOutputLines_PassThrough()
     {
         // actual ITestOutputHelper content should pass through untouched
-        var littyLog = " [🔥 INFO] [2026-02-18T21:45:00.420Z] [MyTests] my test log message";
+        var littyLog = " [🔥 info] [2026-02-18T21:45:00.420Z] [MyTests] my test log message";
         var result = TestOutputRewriter.TryRewrite(littyLog);
 
         Assert.Null(result);

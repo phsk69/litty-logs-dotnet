@@ -16,9 +16,9 @@ info: Microsoft.Hosting.Lifetime[0]
 ## after (absolutely bussin) 🔥
 
 ```
-[🔥 INFO] [2026-02-18T21:45:00.420Z] [Lifetime] we vibing on http://localhost:5000 fr fr 🎧
-[🔥 INFO] [2026-02-18T21:45:00.421Z] [Lifetime] app is bussin and ready to slay bestie 💅 yeet Ctrl+C to dip out no cap
-[🔥 INFO] [2026-02-18T21:45:00.421Z] [Lifetime] content root living at /app bestie 📁
+[🔥 info] [2026-02-18T21:45:00.420Z] [Lifetime] we vibing on http://localhost:5000 fr fr 🎧
+[🔥 info] [2026-02-18T21:45:00.421Z] [Lifetime] app is bussin and ready to slay bestie 💅 yeet Ctrl+C to dip out no cap
+[🔥 info] [2026-02-18T21:45:00.421Z] [Lifetime] content root living at /app bestie 📁
 ```
 
 ## installation
@@ -28,6 +28,9 @@ dotnet add package LittyLogs
 
 # for xUnit test output (optional, separate package)
 dotnet add package LittyLogs.Xunit
+
+# for file sink with rotation and gzip compression (optional, separate package)
+dotnet add package LittyLogs.File
 
 # for the CLI tool that litty-fies build and test output
 dotnet tool install --global LittyLogs.Tool
@@ -99,6 +102,52 @@ public class MyTests
     }
 }
 ```
+
+### JSON structured logging — for when machines need to eat too 🍽️
+
+same litty rewrites and emojis, but as valid JSON. your log aggregator is gonna love this no cap
+
+```csharp
+using LittyLogs;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Logging.AddLittyJsonLogs(); // structured JSON with emojis bestie 🔥
+var app = builder.Build();
+app.Run();
+```
+
+output:
+```json
+{"timestamp":"2026-02-19T10:45:00.420Z","level":"info","emoji":"🔥","category":"Lifetime","message":"app is bussin and ready to slay bestie 💅 yeet Ctrl+C to dip out no cap"}
+```
+
+emojis in JSON? absolutely bussin — JSON is UTF-8 native so every parser on earth handles it perfectly 🏆
+
+### file sink — yeet logs to disk with rotation and compression 📁
+
+```csharp
+using LittyLogs.File;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Logging.AddLittyFileLogs(opts =>
+{
+    opts.FilePath = "logs/app.log";
+    opts.OutputFormat = LittyFileOutputFormat.Text;  // or Json for structured output
+    opts.RollingInterval = LittyRollingInterval.Daily;
+    opts.MaxFileSizeBytes = 10 * 1024 * 1024;        // 10MB then rotate
+    opts.CompressionMode = LittyCompressionMode.Gzip; // compress rotated files 🗜️
+});
+var app = builder.Build();
+app.Run();
+```
+
+features that go hard:
+- **async I/O** — `Channel<string>` based, your app thread never blocks on disk writes 👑
+- **text or JSON** — human-readable or machine-parseable, your choice bestie
+- **size + time rotation** — daily, hourly, or size-based. rotated files get timestamps in the name
+- **gzip compression** — old rotated files auto-compress to `.gz`, active file stays uncompressed
+- **startup safeguard** — never auto-rotates on startup, only rotates before writing the next entry 🔒
+- **no ANSI codes** — files never get terminal escape chars, thats cursed 💀
 
 ## what gets litty-fied
 
@@ -186,19 +235,21 @@ litty-logs only rewrites known framework messages. your custom log messages pass
 
 ```csharp
 logger.LogInformation("my custom message stays exactly like this");
-// output: [🔥 INFO] [2026-02-18T21:45:00.420Z] [MyService] my custom message stays exactly like this
+// output: [🔥 info] [2026-02-18T21:45:00.420Z] [MyService] my custom message stays exactly like this
 ```
 
 ## examples
 
-four example projects in `examples/` so you can see litty-logs in every scenario:
+six example projects in `examples/` so you can see litty-logs in every scenario:
 
 | example | what it shows | run it |
 |---|---|---|
-| `LittyLogs.Example.WebApi` | ASP.NET Core minimal api with request logging | `just example-web` |
-| `LittyLogs.Example.HostedService` | background service doing vibe checks in a loop | `just example-hosted` |
-| `LittyLogs.Example.Console` | simplest possible setup, logs at every level then dips | `just example-console` |
-| `LittyLogs.Example.Xunit` | litty-fied xUnit test output with all log levels | `just example-xunit` |
+| `WebApi` | ASP.NET Core minimal api with request logging (pass `--json` for JSON mode) | `just example web` / `just example web --json` |
+| `HostedService` | background service doing vibe checks in a loop | `just example hosted` |
+| `Console` | side-by-side text + JSON output comparison | `just example console` |
+| `Xunit` | litty-fied xUnit test output with all log levels | `just example xunit` |
+| `Json` | structured JSON logging with emojis — log aggregators eat good | `just example json` |
+| `FileSink` | file sink with text + JSON output, rotation config | `just example filesink` |
 
 ## development — for the contributing besties 🛠️
 
@@ -212,7 +263,7 @@ this project uses [just](https://just.systems) as the task runner. here are the 
 | `just test` | run all tests |
 | `just litty-build` | build with litty-fied output 🔥 |
 | `just litty-test` | test with litty-fied output 🔥 |
-| `just pack` | pack all three NuGet packages |
+| `just pack` | pack all four NuGet packages |
 | `just bump patch` | bump the patch version (also: `minor`, `major`) |
 | `just bump-pre dev.1` | slap a pre-release label on (e.g. `0.1.0-dev.1`) |
 | `just release patch` | gitflow release — bump + `git flow release start/finish` 🚀 |
@@ -220,10 +271,25 @@ this project uses [just](https://just.systems) as the task runner. here are the 
 | `just hotfix patch` | start a gitflow hotfix branch off main 🚑 |
 | `just hotfix-finish` | finish a hotfix — `git flow hotfix finish` |
 | `just nuget-push` | manually push packages to nuget.org |
+| `just example <name>` | run an example — `web`, `hosted`, `console`, `xunit`, `json`, `filesink` 🔥 |
+| `just setup-completions` | install shell tab-completions for `just example <tab>` |
+
+### shell completions
+
+tab-complete `just example <tab>` to see all available examples. works with zsh and bash:
+
+```bash
+# auto-install to your shell rc file
+just setup-completions
+
+# or source manually
+source completions/just.zsh   # zsh
+source completions/just.bash  # bash
+```
 
 ### versioning
 
-version lives in one place: `Directory.Build.props`. all three packages inherit from it. we use [gitflow](https://nvie.com/posts/a-successful-git-branching-model/) via the `git flow` CLI — `main` is production, `develop` is the integration branch, releases and hotfixes get their own branches 🔥
+version lives in one place: `Directory.Build.props`. all four packages inherit from it. we use [gitflow](https://nvie.com/posts/a-successful-git-branching-model/) via the `git flow` CLI — `main` is production, `develop` is the integration branch, releases and hotfixes get their own branches 🔥
 
 ### release flow (gitflow)
 

@@ -16,27 +16,56 @@ litty-test:
 litty-build:
     dotnet run --project src/LittyLogs.Tool -- build
 
-# pack all NuGet packages so the besties can install em
+# pack all NuGet packages so the besties can install em (four packages now 📦)
 pack:
     dotnet pack src/LittyLogs/LittyLogs.csproj -c Release
     dotnet pack src/LittyLogs.Xunit/LittyLogs.Xunit.csproj -c Release
     dotnet pack src/LittyLogs.Tool/LittyLogs.Tool.csproj -c Release
+    dotnet pack src/LittyLogs.File/LittyLogs.File.csproj -c Release
 
-# run the web api example to flex
-example-web:
-    dotnet run --project examples/LittyLogs.Example.WebApi
+# run an example — usage: just example web|hosted|console|xunit|json|filesink [extra args] 🔥
+# extra args pass through to the underlying command (e.g. just example web --json)
+example name *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{name}}" in
+        web)      dotnet run --project examples/LittyLogs.Example.WebApi -- {{args}} ;;
+        hosted)   dotnet run --project examples/LittyLogs.Example.HostedService -- {{args}} ;;
+        console)  dotnet run --project examples/LittyLogs.Example.Console -- {{args}} ;;
+        xunit)    dotnet test examples/LittyLogs.Example.Xunit --verbosity normal {{args}} ;;
+        json)     dotnet run --project examples/LittyLogs.Example.Json -- {{args}} ;;
+        filesink) dotnet run --project examples/LittyLogs.Example.FileSink -- {{args}} ;;
+        *)        echo "bruh '{{name}}' aint a valid example — try: web, hosted, console, xunit, json, filesink 💀"; exit 1 ;;
+    esac
 
-# run the hosted service example (background vibe checker)
-example-hosted:
-    dotnet run --project examples/LittyLogs.Example.HostedService
-
-# run the console example (the ten-liner speedrun)
-example-console:
-    dotnet run --project examples/LittyLogs.Example.Console
-
-# run the xunit example tests to see litty-fied test output
-example-xunit:
-    dotnet test examples/LittyLogs.Example.Xunit --verbosity normal
+# install shell completions for `just example <tab>` — works with zsh and bash 🔥
+setup-completions:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    shell=$(basename "$SHELL")
+    script_dir="{{justfile_directory()}}/completions"
+    case "$shell" in
+        zsh)
+            comp_file="${script_dir}/just.zsh"
+            rc_file="$HOME/.zshrc"
+            ;;
+        bash)
+            comp_file="${script_dir}/just.bash"
+            rc_file="$HOME/.bashrc"
+            ;;
+        *)
+            echo "bruh '$shell' aint supported yet — only zsh and bash rn 💀"
+            exit 1
+            ;;
+    esac
+    source_line="source \"${comp_file}\""
+    if grep -qF "$comp_file" "$rc_file" 2>/dev/null; then
+        echo "completions already installed in ${rc_file} bestie, youre good 💅"
+    else
+        echo "$source_line" >> "$rc_file"
+        echo "completions installed in ${rc_file} 🔥"
+        echo "restart your shell or run: source ${rc_file}"
+    fi
 
 # yeet all build artifacts
 clean:
