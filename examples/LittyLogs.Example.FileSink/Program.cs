@@ -6,8 +6,8 @@ var logDir = Path.Combine(AppContext.BaseDirectory, "logs");
 Console.WriteLine("🔥 litty-logs file sink example — logs hitting disk with emojis no cap 📁");
 Console.WriteLine();
 
-// === text file output ===
-Console.WriteLine("=== text file output ===");
+// === text file output (level-first, RFC 5424 default) ===
+Console.WriteLine("=== text file output (level-first) ===");
 var textLogPath = Path.Combine(logDir, "text", "app.log");
 
 using (var factory = LoggerFactory.Create(logging =>
@@ -43,7 +43,44 @@ if (resolvedTextPath is not null)
 {
     Console.WriteLine($"  wrote to: {resolvedTextPath}");
     Console.WriteLine("  --- file contents ---");
-    foreach (var line in File.ReadAllLines(resolvedTextPath).Take(10))
+    foreach (var line in File.ReadAllLines(resolvedTextPath).TakeLast(7))
+        Console.WriteLine($"  {line}");
+    Console.WriteLine("  ---");
+}
+
+Console.WriteLine();
+
+// === timestamp-first text output (observability style) ===
+Console.WriteLine("=== text file output (timestamp-first) ===");
+var tsFirstLogPath = Path.Combine(logDir, "timestamp-first", "app.log");
+
+using (var factory = LoggerFactory.Create(logging =>
+{
+    logging.SetMinimumLevel(LogLevel.Trace);
+    logging.AddLittyFileLogs(opts =>
+    {
+        opts.FilePath = tsFirstLogPath;
+        opts.OutputFormat = LittyFileOutputFormat.Text;
+        opts.RollingInterval = LittyRollingInterval.Daily;
+        opts.TimestampFirst = true; // observability style — timestamp leads 📊
+    });
+}))
+{
+    var logger = factory.CreateLogger("FileSinkDemo");
+
+    logger.LogInformation("timestamp leads for the sort key besties 📊");
+    logger.LogWarning("same vibes different ordering 😤");
+    logger.LogError("even Ls look organized with timestamp-first 💀");
+}
+
+await Task.Delay(300);
+
+var resolvedTsFirstPath = Directory.GetFiles(Path.Combine(logDir, "timestamp-first"), "*.log").FirstOrDefault();
+if (resolvedTsFirstPath is not null)
+{
+    Console.WriteLine($"  wrote to: {resolvedTsFirstPath}");
+    Console.WriteLine("  --- file contents ---");
+    foreach (var line in File.ReadAllLines(resolvedTsFirstPath).TakeLast(3))
         Console.WriteLine($"  {line}");
     Console.WriteLine("  ---");
 }
@@ -79,10 +116,10 @@ if (resolvedJsonPath is not null)
 {
     Console.WriteLine($"  wrote to: {resolvedJsonPath}");
     Console.WriteLine("  --- file contents ---");
-    foreach (var line in File.ReadAllLines(resolvedJsonPath).Take(5))
+    foreach (var line in File.ReadAllLines(resolvedJsonPath).TakeLast(3))
         Console.WriteLine($"  {line}");
     Console.WriteLine("  ---");
 }
 
 Console.WriteLine();
-Console.WriteLine("both text and JSON logs are on disk bestie. emojis, rewrites, the whole package 🔥📁");
+Console.WriteLine("text, timestamp-first, and JSON logs all on disk bestie. the full drip 🔥📁📊");

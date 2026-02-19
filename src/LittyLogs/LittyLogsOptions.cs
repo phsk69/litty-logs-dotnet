@@ -25,6 +25,13 @@ public class LittyLogsOptions : ConsoleFormatterOptions
     /// </summary>
     public bool ShortenCategories { get; set; } = true;
 
+    /// <summary>
+    /// put timestamp before level label in output.
+    /// false = RFC 5424 style: [emoji level] [timestamp] [category] message (default)
+    /// true = observability style: [timestamp] [emoji level] [category] message
+    /// </summary>
+    public bool TimestampFirst { get; set; } = false;
+
     public LittyLogsOptions()
     {
         // ISO 8601 timestamps for that international rizz 🌍

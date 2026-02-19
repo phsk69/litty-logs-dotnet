@@ -12,9 +12,11 @@ namespace LittyLogs.Example.Xunit;
 public class ExampleTests
 {
     private readonly ILogger<ExampleTests> _logger;
+    private readonly ITestOutputHelper _output;
 
     public ExampleTests(ITestOutputHelper output)
     {
+        _output = output;
         // one line to litty-fy your test output bestie 💅
         _logger = output.CreateLittyLogger<ExampleTests>();
     }
@@ -54,6 +56,22 @@ public class ExampleTests
         // your own messages keep their original text, just get the litty formatting
         _logger.LogInformation("my custom business logic message stays exactly like this");
         _logger.LogWarning("something specific to my app that shouldnt be rewritten");
+    }
+
+    [Fact]
+    public void TimestampFirst_ShowsObservabilityOrdering()
+    {
+        // timestamp-first mode puts the timestamp before the level label
+        // for when observability tools are sorting by timestamp bestie 📊
+        var tsFirstLogger = LoggerFactory.Create(builder =>
+        {
+            builder.SetMinimumLevel(LogLevel.Trace);
+            builder.AddLittyLogs(_output, opts => opts.TimestampFirst = true);
+        }).CreateLogger("TimestampFirstDemo");
+
+        tsFirstLogger.LogInformation("timestamp leads in observability mode 📊");
+        tsFirstLogger.LogWarning("same vibes different ordering 😤");
+        tsFirstLogger.LogError("even Ls look organized with timestamp-first 💀");
     }
 
     [Fact]

@@ -249,4 +249,29 @@ public class LittyLogsFormatterTests
         formatter.Write(in entry, null, writer);
         Assert.Empty(writer.ToString());
     }
+
+    [Fact]
+    public void Write_DefaultOrder_LevelBeforeTimestamp()
+    {
+        // RFC 5424 style — level comes first by default no cap
+        var formatter = CreateFormatter();
+        var output = RenderLog(formatter, LogLevel.Information, "TestCategory", "test message");
+
+        var levelIdx = output.IndexOf("info");
+        var timestampIdx = output.IndexOf("[20"); // ISO timestamp starts with year
+        Assert.True(levelIdx < timestampIdx, "level should come before timestamp in default (RFC 5424) mode");
+    }
+
+    [Fact]
+    public void Write_TimestampFirst_TimestampBeforeLevel()
+    {
+        // observability style — timestamp first for the sort key besties
+        var opts = new LittyLogsOptions { TimestampFirst = true, UseColors = false };
+        var formatter = CreateFormatter(opts);
+        var output = RenderLog(formatter, LogLevel.Information, "TestCategory", "test message");
+
+        var levelIdx = output.IndexOf("info");
+        var timestampIdx = output.IndexOf("[20");
+        Assert.True(timestampIdx < levelIdx, "timestamp should come before level when TimestampFirst is true");
+    }
 }

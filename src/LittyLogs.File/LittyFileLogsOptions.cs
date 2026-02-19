@@ -86,6 +86,14 @@ public class LittyFileLogsOptions
     public bool ShortenCategories { get; set; } = true;
 
     /// <summary>
+    /// put timestamp before level label in text output.
+    /// false = RFC 5424 style: [emoji level] [timestamp] [category] message (default)
+    /// true = observability style: [timestamp] [emoji level] [category] message
+    /// only affects Text format — JSON always outputs timestamp first as a key 📊
+    /// </summary>
+    public bool TimestampFirst { get; set; } = false;
+
+    /// <summary>
     /// whether to use UTC timestamps. true by default for that international rizz 🌍
     /// </summary>
     public bool UseUtcTimestamp { get; set; } = true;
@@ -105,6 +113,7 @@ public class LittyFileLogsOptions
         UseColors = false, // ANSI codes in files is cursed af 💀
         ShortenCategories = ShortenCategories,
         UseUtcTimestamp = UseUtcTimestamp,
-        TimestampFormat = TimestampFormat
+        TimestampFormat = TimestampFormat,
+        TimestampFirst = TimestampFirst
     };
 }

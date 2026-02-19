@@ -186,6 +186,7 @@ builder.Logging.AddLittyLogs(options =>
     options.ShortenCategories = true;   // yeet namespace bloat (default: true)
     options.UseUtcTimestamp = true;     // UTC timestamps (default: true, international rizz)
     options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffK"; // ISO 8601 with milliseconds (default)
+    options.TimestampFirst = false;     // false = RFC 5424 (level first), true = observability style (timestamp first)
 });
 ```
 

@@ -82,15 +82,24 @@ public static class LittyLogsFormatHelper
 
         var sb = new StringBuilder();
 
-        if (options.UseColors)
+        // build the two bracket segments then order based on config
+        var levelBracket = options.UseColors
+            ? $"{color}[{emoji} {levelLabel}]{Reset} "
+            : $"[{emoji} {levelLabel}] ";
+
+        var timestampBracket = options.UseColors
+            ? $"{Dim}[{timestamp}] [{displayCategory}]{Reset} "
+            : $"[{timestamp}] [{displayCategory}] ";
+
+        if (options.TimestampFirst)
         {
-            sb.Append($"{color}[{emoji} {levelLabel}]{Reset} ");
-            sb.Append($"{Dim}[{timestamp}] [{displayCategory}]{Reset} ");
+            sb.Append(timestampBracket);
+            sb.Append(levelBracket);
         }
         else
         {
-            sb.Append($"[{emoji} {levelLabel}] ");
-            sb.Append($"[{timestamp}] [{displayCategory}] ");
+            sb.Append(levelBracket);
+            sb.Append(timestampBracket);
         }
 
         sb.Append(message);
