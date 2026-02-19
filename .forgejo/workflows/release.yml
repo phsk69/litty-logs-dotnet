@@ -1,0 +1,115 @@
+# release pipeline — tag goes brrr and packages hit nuget.org 🚀
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: self-hosted
+    steps:
+      - name: yoink the code 📥
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: figure out the version from the tag 🏷️
+        id: version
+        run: |
+          # strip the v prefix from the tag — v1.2.3 -> 1.2.3
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version is ${VERSION} lets gooo 🔥"
+
+      - name: sanity check — make sure tag matches Directory.Build.props 🧐
+        run: |
+          props_version=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
+          if [ "$props_version" != "${{ steps.version.outputs.version }}" ]; then
+            echo "bruh the tag says ${{ steps.version.outputs.version }} but Directory.Build.props says ${props_version} thats not it 💀"
+            exit 1
+          fi
+          echo "version vibes match — ${props_version} 🔥"
+
+      - name: litty build in release mode 🏗️🔥
+        run: dotnet run --project src/LittyLogs.Tool -- build --configuration Release
+
+      - name: litty test one more time for the culture 🧪🔥
+        run: dotnet run --project src/LittyLogs.Tool -- test --configuration Release --no-build
+
+      - name: pack all three nupkgs 📦
+        run: dotnet pack --configuration Release --no-build --output ./nupkgs
+
+      - name: flex what we packed 💅
+        run: ls -la ./nupkgs/
+
+      - name: push to nuget.org — the besties need these packages 🚀
+        run: |
+          for pkg in ./nupkgs/*.nupkg; do
+            echo "pushing ${pkg} to nuget.org no cap 📤"
+            dotnet nuget push "$pkg" \
+              --api-key "${{ secrets.NUGET_API_KEY }}" \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate
+          done
+
+      - name: extract changelog section for this version 📜
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # extract everything between this version header and the next version header (or EOF)
+          NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} /^## \[/{if(found) exit} found{print}" CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES="v${VERSION} dropped no cap — check the commits for the full vibe 🔥"
+          fi
+          {
+            echo "notes<<CHANGELOG_EOF"
+            echo "$NOTES"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: create forgejo release — home turf first 🏠🔥
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          NOTES="${{ steps.changelog.outputs.notes }}"
+          API_URL="${GITHUB_SERVER_URL}/api/v1"
+          REPO="${GITHUB_REPOSITORY}"
+          # create the release
+          RELEASE_ID=$(curl -s -X POST \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"tag_name\": \"${TAG}\", \"name\": \"v${VERSION} — new drop 🔥\", \"body\": $(echo "$NOTES" | jq -Rs .)}" \
+            "${API_URL}/repos/${REPO}/releases" | jq -r '.id')
+          if [ "$RELEASE_ID" = "null" ] || [ -z "$RELEASE_ID" ]; then
+            echo "bruh forgejo release creation failed 💀"
+            exit 1
+          fi
+          echo "forgejo release created with id ${RELEASE_ID} 🔥"
+          # upload the nupkg assets
+          for pkg in ./nupkgs/*.nupkg; do
+            filename=$(basename "$pkg")
+            echo "uploading ${filename} to forgejo release 📤"
+            curl -s -X POST \
+              -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@${pkg}" \
+              "${API_URL}/repos/${REPO}/releases/${RELEASE_ID}/assets?name=${filename}"
+          done
+          echo "forgejo release is bussin 🔥"
+
+      - name: create github release on the mirror 🪞
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          gh release create "${TAG}" \
+            --repo "phsk69/litty-logs-dotnet" \
+            --title "v${VERSION} — new drop 🔥" \
+            --notes "${{ steps.changelog.outputs.notes }}" \
+            ./nupkgs/*.nupkg
