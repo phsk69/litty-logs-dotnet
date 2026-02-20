@@ -111,16 +111,6 @@ jobs:
           done
           echo "forgejo release is bussin 🔥"
 
-      - name: push to github mirror so the tag exists over there 🪞
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          TAG="${{ steps.version.outputs.tag }}"
-          git remote add github "https://x-access-token:${GH_PAT}@github.com/phsk69/litty-logs-dotnet.git" 2>/dev/null || \
-            git remote set-url github "https://x-access-token:${GH_PAT}@github.com/phsk69/litty-logs-dotnet.git"
-          git push github main "${TAG}"
-          echo "main and tag pushed to github mirror 🪞🔥"
-
       - name: create github release on the mirror 🪞
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -132,6 +122,20 @@ jobs:
           if [ "${{ steps.version.outputs.prerelease }}" = "true" ]; then
             PRERELEASE_FLAG="--prerelease"
           fi
+          # forgejo push mirror syncs to github automatically but might take a sec 🪞
+          echo "waiting for forgejo mirror to sync the tag to github..."
+          for i in $(seq 1 30); do
+            if gh api repos/phsk69/litty-logs-dotnet/git/refs/tags/"${TAG}" --silent 2>/dev/null; then
+              echo "tag ${TAG} found on github lets gooo 🔥"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "bruh tag ${TAG} still not on github after 30 tries thats not it 💀"
+              exit 1
+            fi
+            echo "mirror aint synced yet, waiting 2s... (attempt ${i}/30)"
+            sleep 2
+          done
           gh release create "${TAG}" \
             --repo "phsk69/litty-logs-dotnet" \
             --title "v${VERSION} — new drop 🔥" \

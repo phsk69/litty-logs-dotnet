@@ -2,6 +2,21 @@
 
 all the glow ups and level ups for litty-logs no cap
 
+## [0.1.4] - 2026-02-20
+
+### the mirror arc — forgejo push mirroring does the heavy lifting now 🪞🔥
+
+the manual github mirror push in the release pipeline was doing too much — forgejo push mirroring already syncs branches + tags to github automatically. yeeted the redundant step and replaced it with a smart wait-for-tag loop so the github release creation dont race the mirror sync. docs got the glow up to match fr fr
+
+#### fixed — manual mirror push was redundant and sometimes caught Ls 💀
+- yeeted the `push to github mirror so the tag exists over there` step from `release.yml` — forgejo push mirroring (Settings → Mirror) already handles syncing branches + tags to github automatically
+- added a wait-for-tag polling loop (up to 30 attempts, 2s apart) that checks `gh api repos/.../git/refs/tags/{TAG}` before creating the github release — no more racing the mirror sync 🏎️
+
+#### changed — `GH_PAT` scope clarified in runner docs 📜
+- `docs/runner-setup.md` updated: `GH_PAT` is now only for `gh release create` API calls, not for pushing git refs
+- release flow docs simplified — all `just release` / `just hotfix` / `just finish` commands auto-push, no manual `git push` instructions needed fr fr
+- pipeline step descriptions updated to mention mirror sync + retryability
+
 ## [0.1.3] - 2026-02-19
 
 ### the infrastructure arc — release pipeline went from bricked to bussin 🏗️🔥
