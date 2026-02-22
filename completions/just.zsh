@@ -3,7 +3,7 @@
 #   source /path/to/litty-logs-dotnet/completions/just.zsh
 
 _just_litty() {
-    local examples=(web hosted console xunit json filesink)
+    local examples=(web hosted console xunit json filesink webhooks)
 
     # only complete if we're typing `just example <arg>`
     if [[ "${words[2]}" == "example" && $CURRENT -eq 3 ]]; then

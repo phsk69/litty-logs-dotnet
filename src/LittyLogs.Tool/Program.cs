@@ -15,6 +15,8 @@ return subcommand switch
 {
     "test" => await RunTest(remainingArgs),
     "build" => await RunBuild(remainingArgs),
+    "publish" => await RunPublish(remainingArgs),
+    "pack" => await RunPack(remainingArgs),
     _ => HandleUnknown(subcommand),
 };
 
@@ -48,6 +50,28 @@ static async Task<int> RunBuild(string[] extraArgs)
         line => BuildOutputRewriter.TryRewrite(line) ?? line);
 }
 
+static async Task<int> RunPublish(string[] extraArgs)
+{
+    PrintBanner("publish");
+
+    var arguments = new List<string> { "publish" };
+    arguments.AddRange(extraArgs);
+
+    return await DotnetProcessRunner.RunAsync(arguments,
+        line => PublishOutputRewriter.TryRewrite(line) ?? line);
+}
+
+static async Task<int> RunPack(string[] extraArgs)
+{
+    PrintBanner("pack");
+
+    var arguments = new List<string> { "pack" };
+    arguments.AddRange(extraArgs);
+
+    return await DotnetProcessRunner.RunAsync(arguments,
+        line => PackOutputRewriter.TryRewrite(line) ?? line);
+}
+
 static int HandleUnknown(string subcommand)
 {
     Console.WriteLine($"{Red}yo \"{subcommand}\" aint a valid subcommand bestie{Reset} 💀");
@@ -66,8 +90,10 @@ static void PrintUsage()
 {
     Console.WriteLine($"{Cyan}litty{Reset} — the CLI tool that makes all dotnet output bussin 🔥");
     Console.WriteLine();
-    Console.WriteLine($"  {Green}litty test{Reset}  [args...]  wraps dotnet test with litty-fied output 🧪");
-    Console.WriteLine($"  {Green}litty build{Reset} [args...]  wraps dotnet build with litty-fied output 🏗️");
+    Console.WriteLine($"  {Green}litty test{Reset}    [args...]  wraps dotnet test with litty-fied output 🧪");
+    Console.WriteLine($"  {Green}litty build{Reset}   [args...]  wraps dotnet build with litty-fied output 🏗️");
+    Console.WriteLine($"  {Green}litty publish{Reset} [args...]  wraps dotnet publish with litty-fied output 📤");
+    Console.WriteLine($"  {Green}litty pack{Reset}    [args...]  wraps dotnet pack with litty-fied output 📦");
     Console.WriteLine();
     Console.WriteLine($"  all args pass through to the underlying dotnet command no cap");
     Console.WriteLine($"  {Dim}litty test auto-injects detailed logging so your test output shows up{Reset}");

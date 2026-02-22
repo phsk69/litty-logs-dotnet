@@ -9,7 +9,7 @@ _just_litty() {
 
     # complete example names when typing `just example <tab>`
     if [[ "$prev" == "example" ]]; then
-        COMPREPLY=($(compgen -W "web hosted console xunit json filesink" -- "$cur"))
+        COMPREPLY=($(compgen -W "web hosted console xunit json filesink webhooks" -- "$cur"))
         return
     fi
 

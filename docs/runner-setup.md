@@ -45,7 +45,7 @@ go to your forgejo repo → Settings → Actions → Secrets and add these:
 
 - **`GITHUB_TOKEN`** is auto-injected by forgejo actions into every workflow run. you dont need to create this manually, its just there. it handles creating the forgejo release and uploading .nupkg files as release assets 🏠
 - **`GH_PAT`** should be a fine-grained token scoped to ONLY `phsk69/litty-logs-dotnet` with Contents read/write. this is only used for `gh release create` API calls — forgejo push mirroring (Settings → Mirror) handles syncing git refs to github automatically. dont give it more perms than it needs — principle of least privilege is bussin 🔒
-- **`NUGET_API_KEY`** glob pattern `LittyLogs*` covers all four packages (LittyLogs, LittyLogs.Xunit, LittyLogs.File, LittyLogs.Tool). set an expiry and rotate it periodically bestie
+- **`NUGET_API_KEY`** glob pattern `LittyLogs*` covers all five packages (LittyLogs, LittyLogs.Xunit, LittyLogs.File, LittyLogs.Webhooks, LittyLogs.Tool). set an expiry and rotate it periodically bestie
 
 ## runner registration 🏃
 
@@ -78,7 +78,7 @@ check your forgejo repo → Settings → Actions → Runners to verify it shows 
 - forgejo push mirroring auto-syncs the tag + branches to github (Settings → Mirror)
 - the pipeline hits three destinations:
   1. **build + test + pack** — sanity check, tag version must match Directory.Build.props
-  2. **nuget.org** — pushes all four .nupkg files with `--skip-duplicate`
+  2. **nuget.org** — pushes all five .nupkg files with `--skip-duplicate`
   3. **forgejo release** — creates a release on forgejo via Gitea API, uploads .nupkg assets
   4. **github release** — waits for mirror sync, then creates a release via `gh release create`, uploads .nupkg assets
 - changelog section gets auto-extracted from `CHANGELOG.md` for release notes

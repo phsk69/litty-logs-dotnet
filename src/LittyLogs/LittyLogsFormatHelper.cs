@@ -102,7 +102,14 @@ public static class LittyLogsFormatHelper
             sb.Append(timestampBracket);
         }
 
-        sb.Append(message);
+        // sanitize newlines in text output to prevent log injection —
+        // \n in a message would create fake log entries and thats NOT it bestie 🔒
+        if (message is not null)
+        {
+            sb.Append(message.Contains('\n') || message.Contains('\r')
+                ? message.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ')
+                : message);
+        }
 
         if (exception is not null)
         {

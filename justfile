@@ -16,12 +16,21 @@ litty-test:
 litty-build:
     dotnet run --project src/LittyLogs.Tool -- build
 
-# pack all NuGet packages so the besties can install em (four packages now 📦)
+# publish through the litty tool for that gen alpha publish output
+litty-publish *args:
+    dotnet run --project src/LittyLogs.Tool -- publish {{args}}
+
+# pack through the litty tool for that gen alpha nupkg output 📦🔥
+litty-pack *args:
+    dotnet run --project src/LittyLogs.Tool -- pack {{args}}
+
+# pack all NuGet packages so the besties can install em (five packages now 📦)
 pack:
     dotnet pack src/LittyLogs/LittyLogs.csproj -c Release
     dotnet pack src/LittyLogs.Xunit/LittyLogs.Xunit.csproj -c Release
     dotnet pack src/LittyLogs.Tool/LittyLogs.Tool.csproj -c Release
     dotnet pack src/LittyLogs.File/LittyLogs.File.csproj -c Release
+    dotnet pack src/LittyLogs.Webhooks/LittyLogs.Webhooks.csproj -c Release
 
 # run an example — usage: just example web|hosted|console|xunit|json|filesink [extra args] 🔥
 # extra args pass through to the underlying command (e.g. just example web --json)
@@ -34,8 +43,9 @@ example name *args:
         console)  dotnet run --project examples/LittyLogs.Example.Console -- {{args}} ;;
         xunit)    dotnet test examples/LittyLogs.Example.Xunit --verbosity normal {{args}} ;;
         json)     dotnet run --project examples/LittyLogs.Example.Json -- {{args}} ;;
-        filesink) dotnet run --project examples/LittyLogs.Example.FileSink -- {{args}} ;;
-        *)        echo "bruh '{{name}}' aint a valid example — try: web, hosted, console, xunit, json, filesink 💀"; exit 1 ;;
+        filesink)  dotnet run --project examples/LittyLogs.Example.FileSink -- {{args}} ;;
+        webhooks)  dotnet run --project examples/LittyLogs.Example.Webhooks -- {{args}} ;;
+        *)         echo "bruh '{{name}}' aint a valid example — try: web, hosted, console, xunit, json, filesink, webhooks 💀"; exit 1 ;;
     esac
 
 # install shell completions for `just example <tab>` — works with zsh and bash 🔥

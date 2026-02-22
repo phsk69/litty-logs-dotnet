@@ -274,4 +274,67 @@ public class LittyLogsFormatterTests
         var timestampIdx = output.IndexOf("[20");
         Assert.True(timestampIdx < levelIdx, "timestamp should come before level when TimestampFirst is true");
     }
+
+    // ===============================
+    // LOG INJECTION PREVENTION — newlines in messages cant create fake entries 🔒
+    // ===============================
+
+    [Fact]
+    public void FormatLogLine_NewlinesInMessage_SanitizedToSpaces()
+    {
+        // log injection attempt — newlines should NOT create fake log entries bestie 🔒
+        var options = new LittyLogsOptions { UseColors = false };
+        var malicious = "legit message\n[🔥 info] [2026-02-22T00:00:00.000Z] [FakeCategory] injected log entry";
+
+        var result = LittyLogsFormatHelper.FormatLogLine(
+            LogLevel.Information, "TestCategory", malicious, null, options);
+
+        // the whole thing should be one line — no embedded newlines in the message portion
+        Assert.DoesNotContain("\n", result);
+        // the fake brackets should still be there, just on the same line (neutralized)
+        Assert.Contains("[FakeCategory]", result);
+        _logger.LogInformation("log injection neutralized — newlines yeeted to spaces 🔒");
+    }
+
+    [Fact]
+    public void FormatLogLine_CrLfInMessage_AlsoSanitized()
+    {
+        var options = new LittyLogsOptions { UseColors = false };
+        var malicious = "line one\r\nline two\rline three";
+
+        var result = LittyLogsFormatHelper.FormatLogLine(
+            LogLevel.Information, "TestCategory", malicious, null, options);
+
+        Assert.DoesNotContain("\r", result);
+        Assert.DoesNotContain("\n", result);
+        Assert.Contains("line one line two line three", result);
+    }
+
+    [Fact]
+    public void FormatLogLine_NormalMessage_PassesThroughUnchanged()
+    {
+        var options = new LittyLogsOptions { UseColors = false };
+        var normal = "just a regular message no cap";
+
+        var result = LittyLogsFormatHelper.FormatLogLine(
+            LogLevel.Information, "TestCategory", normal, null, options);
+
+        Assert.Contains("just a regular message no cap", result);
+    }
+
+    [Fact]
+    public void FormatLogLine_ExceptionStillMultiline()
+    {
+        // exceptions are INTENTIONALLY multiline — dont sanitize them 🔥
+        var options = new LittyLogsOptions { UseColors = false };
+        var ex = new InvalidOperationException("bricked");
+
+        var result = LittyLogsFormatHelper.FormatLogLine(
+            LogLevel.Error, "TestCategory", "error happened", ex, options);
+
+        // the exception part should still have newlines (stack trace is multiline)
+        Assert.Contains("bricked", result);
+        // message part should not have injected newlines though
+        Assert.Contains("error happened", result);
+    }
 }
