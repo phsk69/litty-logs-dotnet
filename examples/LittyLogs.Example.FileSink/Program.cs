@@ -1,13 +1,17 @@
+using LittyLogs;
 using LittyLogs.File;
 using Microsoft.Extensions.Logging;
 
+// meta logger for structural output — we eat our own dogfood bestie 🐕
+using var meta = LoggerFactory.Create(l => l.AddLittyLogs());
+var log = meta.CreateLogger("FileSinkExample");
+
 var logDir = Path.Combine(AppContext.BaseDirectory, "logs");
 
-Console.WriteLine("🔥 litty-logs file sink example — logs hitting disk with emojis no cap 📁");
-Console.WriteLine();
+log.LogInformation("litty-logs file sink example — logs hitting disk with emojis no cap 📁");
 
 // === text file output (level-first, RFC 5424 default) ===
-Console.WriteLine("=== text file output (level-first) ===");
+log.LogInformation("=== text file output (level-first) ===");
 var textLogPath = Path.Combine(logDir, "text", "app.log");
 
 using (var factory = LoggerFactory.Create(logging =>
@@ -41,17 +45,15 @@ await Task.Delay(300);
 var resolvedTextPath = Directory.GetFiles(Path.Combine(logDir, "text"), "*.log").FirstOrDefault();
 if (resolvedTextPath is not null)
 {
-    Console.WriteLine($"  wrote to: {resolvedTextPath}");
-    Console.WriteLine("  --- file contents ---");
-    foreach (var line in File.ReadAllLines(resolvedTextPath).TakeLast(7))
-        Console.WriteLine($"  {line}");
-    Console.WriteLine("  ---");
+    log.LogInformation("wrote to: {Path}", resolvedTextPath);
+    log.LogInformation("--- file contents ---");
+    foreach (var line in System.IO.File.ReadAllLines(resolvedTextPath).TakeLast(7))
+        log.LogDebug("{Line}", line);
+    log.LogInformation("---");
 }
 
-Console.WriteLine();
-
 // === timestamp-first text output (observability style) ===
-Console.WriteLine("=== text file output (timestamp-first) ===");
+log.LogInformation("=== text file output (timestamp-first) ===");
 var tsFirstLogPath = Path.Combine(logDir, "timestamp-first", "app.log");
 
 using (var factory = LoggerFactory.Create(logging =>
@@ -78,17 +80,15 @@ await Task.Delay(300);
 var resolvedTsFirstPath = Directory.GetFiles(Path.Combine(logDir, "timestamp-first"), "*.log").FirstOrDefault();
 if (resolvedTsFirstPath is not null)
 {
-    Console.WriteLine($"  wrote to: {resolvedTsFirstPath}");
-    Console.WriteLine("  --- file contents ---");
-    foreach (var line in File.ReadAllLines(resolvedTsFirstPath).TakeLast(3))
-        Console.WriteLine($"  {line}");
-    Console.WriteLine("  ---");
+    log.LogInformation("wrote to: {Path}", resolvedTsFirstPath);
+    log.LogInformation("--- file contents ---");
+    foreach (var line in System.IO.File.ReadAllLines(resolvedTsFirstPath).TakeLast(3))
+        log.LogDebug("{Line}", line);
+    log.LogInformation("---");
 }
 
-Console.WriteLine();
-
 // === JSON file output ===
-Console.WriteLine("=== JSON file output ===");
+log.LogInformation("=== JSON file output ===");
 var jsonLogPath = Path.Combine(logDir, "json", "app.log");
 
 using (var factory = LoggerFactory.Create(logging =>
@@ -114,12 +114,11 @@ await Task.Delay(300);
 var resolvedJsonPath = Directory.GetFiles(Path.Combine(logDir, "json"), "*.log").FirstOrDefault();
 if (resolvedJsonPath is not null)
 {
-    Console.WriteLine($"  wrote to: {resolvedJsonPath}");
-    Console.WriteLine("  --- file contents ---");
-    foreach (var line in File.ReadAllLines(resolvedJsonPath).TakeLast(3))
-        Console.WriteLine($"  {line}");
-    Console.WriteLine("  ---");
+    log.LogInformation("wrote to: {Path}", resolvedJsonPath);
+    log.LogInformation("--- file contents ---");
+    foreach (var line in System.IO.File.ReadAllLines(resolvedJsonPath).TakeLast(3))
+        log.LogDebug("{Line}", line);
+    log.LogInformation("---");
 }
 
-Console.WriteLine();
-Console.WriteLine("text, timestamp-first, and JSON logs all on disk bestie. the full drip 🔥📁📊");
+log.LogInformation("text, timestamp-first, and JSON logs all on disk bestie. the full drip 🔥📁📊");

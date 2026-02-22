@@ -43,7 +43,8 @@ public static class LittyWebhookExtensions
     }
 
     /// <summary>
-    /// teams webhook support — coming soon bestie 🟦
+    /// yeets litty-fied logs to a Teams webhook as Adaptive Cards. one liner bestie 🟦🔥
+    /// default MinimumLevel is Warning so your chat dont get spammed no cap
     /// </summary>
     public static ILoggingBuilder AddLittyTeamsLogs(
         this ILoggingBuilder builder,
@@ -53,6 +54,23 @@ public static class LittyWebhookExtensions
         {
             opts.WebhookUrl = webhookUrl;
             opts.Platform = WebhookPlatform.Teams;
+        });
+    }
+
+    /// <summary>
+    /// yeets litty-fied logs to a Teams webhook as Adaptive Cards with full options control 🟦✨
+    /// severity-colored containers make your Teams chat lowkey look like a dashboard bestie 💅
+    /// </summary>
+    public static ILoggingBuilder AddLittyTeamsLogs(
+        this ILoggingBuilder builder,
+        string webhookUrl,
+        Action<LittyWebhookOptions> configure)
+    {
+        return builder.AddLittyWebhookLogs(opts =>
+        {
+            opts.WebhookUrl = webhookUrl;
+            opts.Platform = WebhookPlatform.Teams;
+            configure(opts);
         });
     }
 

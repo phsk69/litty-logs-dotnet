@@ -5,9 +5,12 @@ using Microsoft.Extensions.Logging;
 
 // === startup demo — showing both timestamp modes before the service boots 🔥 ===
 
+// meta logger for structural output — we eat our own dogfood bestie 🐕
+using var meta = LoggerFactory.Create(l => l.AddLittyLogs());
+var log = meta.CreateLogger("HostedServiceExample");
+
 // level-first (RFC 5424 default)
-Console.WriteLine("=== level-first (RFC 5424 default) ===");
-Console.WriteLine();
+log.LogInformation("=== level-first (RFC 5424 default) ===");
 
 using (var factory = LoggerFactory.Create(logging =>
 {
@@ -19,11 +22,8 @@ using (var factory = LoggerFactory.Create(logging =>
     logger.LogWarning("warnings hit different with the emoji prefix 😤");
 }
 
-Console.WriteLine();
-
 // timestamp-first (observability style)
-Console.WriteLine("=== timestamp-first (observability style) ===");
-Console.WriteLine();
+log.LogInformation("=== timestamp-first (observability style) ===");
 
 using (var factory = LoggerFactory.Create(logging =>
 {
@@ -35,9 +35,7 @@ using (var factory = LoggerFactory.Create(logging =>
     logger.LogWarning("same vibes different ordering 😤");
 }
 
-Console.WriteLine();
-Console.WriteLine("=== hosted service running with default config — vibe checks incoming 🚀 ===");
-Console.WriteLine();
+log.LogInformation("=== hosted service running with default config — vibe checks incoming 🚀 ===");
 
 // actual hosted service with default litty-logs config
 var host = Host.CreateDefaultBuilder(args)

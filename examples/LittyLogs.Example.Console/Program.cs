@@ -1,9 +1,12 @@
 using LittyLogs;
 using Microsoft.Extensions.Logging;
 
+// meta logger for structural output — we eat our own dogfood bestie 🐕
+using var meta = LoggerFactory.Create(l => l.AddLittyLogs());
+var log = meta.CreateLogger("ConsoleExample");
+
 // === text mode — the OG litty-logs experience 🔥 ===
-Console.WriteLine("=== text mode (the OG) ===");
-Console.WriteLine();
+log.LogInformation("=== text mode (the OG) ===");
 
 using (var factory = LoggerFactory.Create(logging =>
 {
@@ -25,11 +28,8 @@ using (var factory = LoggerFactory.Create(logging =>
     logger.LogInformation("Application started. Press Ctrl+C to shut down.");
 }
 
-Console.WriteLine();
-
 // === JSON mode — structured output for log aggregators to eat 🍽️ ===
-Console.WriteLine("=== JSON mode (machines eat good) ===");
-Console.WriteLine();
+log.LogInformation("=== JSON mode (machines eat good) ===");
 
 using (var factory = LoggerFactory.Create(logging =>
 {
@@ -51,11 +51,8 @@ using (var factory = LoggerFactory.Create(logging =>
     logger.LogInformation("Application started. Press Ctrl+C to shut down.");
 }
 
-Console.WriteLine();
-
 // === timestamp-first mode — observability style for the sort key besties 📊 ===
-Console.WriteLine("=== timestamp-first mode (observability style) ===");
-Console.WriteLine();
+log.LogInformation("=== timestamp-first mode (observability style) ===");
 
 using (var factory = LoggerFactory.Create(logging =>
 {
@@ -74,5 +71,4 @@ using (var factory = LoggerFactory.Create(logging =>
     logger.LogInformation("Application started. Press Ctrl+C to shut down.");
 }
 
-Console.WriteLine();
-Console.WriteLine("three modes, all bussin — text, JSON, and timestamp-first 🔥🍽️📊");
+log.LogInformation("three modes, all bussin — text, JSON, and timestamp-first 🔥🍽️📊");
