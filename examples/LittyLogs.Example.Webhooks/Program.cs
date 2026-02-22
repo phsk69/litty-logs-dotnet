@@ -7,43 +7,64 @@ using Microsoft.Extensions.Logging;
 Console.WriteLine("🪝 litty-logs webhook sink example — yeet logs to chat no cap 🔥");
 Console.WriteLine();
 
-// === spin up a mock webhook listener so we can capture payloads without a real matrix server ===
-// this is the same vibe as the file sink example — self-contained, no external deps bestie 💅
-var webhookUrl = "http://localhost:19380/webhook/";
+// === mode selection — live hookshot or mock listener ===
+// set HOOKSHOT_URL env var (or put it in .env) to hit a real Matrix hookshot
+// without it we spin up a local mock listener so the example is fully self-contained 💅
+var hookshotUrl = Environment.GetEnvironmentVariable("HOOKSHOT_URL");
+var liveMode = !string.IsNullOrWhiteSpace(hookshotUrl);
+
+string webhookUrl;
 var capturedPayloads = new List<string>();
-using var listener = new HttpListener();
-listener.Prefixes.Add(webhookUrl);
-listener.Start();
-Console.WriteLine($"  mock webhook listener vibing on {webhookUrl} 🎧");
-Console.WriteLine();
+HttpListener? listener = null;
+Task? listenerTask = null;
 
-// handle requests in the background — capture them POST payloads
-var listenerTask = Task.Run(async () =>
+if (liveMode)
 {
-    while (true)
-    {
-        try
-        {
-            var ctx = await listener.GetContextAsync();
-            if (ctx.Request.HttpMethod == "POST" && ctx.Request.HasEntityBody)
-            {
-                using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
-                var body = await reader.ReadToEndAsync();
-                capturedPayloads.Add(body);
-            }
-            ctx.Response.StatusCode = 200;
-            ctx.Response.Close();
-        }
-        catch (HttpListenerException)
-        {
-            break; // listener stopped, we out 🫡
-        }
-    }
-});
+    webhookUrl = hookshotUrl!;
+    Console.WriteLine("  🟢 LIVE MODE — hitting a real Matrix hookshot, check your room bestie 🔥");
+    Console.WriteLine($"  webhook: {webhookUrl[..webhookUrl.LastIndexOf('/')]}/<redacted> 🔒");
+    Console.WriteLine();
+}
+else
+{
+    // spin up a mock webhook listener so we can capture payloads without a real matrix server
+    webhookUrl = "http://localhost:19380/webhook/";
+    listener = new HttpListener();
+    listener.Prefixes.Add(webhookUrl);
+    listener.Start();
+    Console.WriteLine("  🟡 MOCK MODE — no HOOKSHOT_URL set, using local mock listener");
+    Console.WriteLine($"  set HOOKSHOT_URL in .env to go live with a real hookshot bestie 💅");
+    Console.WriteLine($"  mock listener vibing on {webhookUrl} 🎧");
+    Console.WriteLine();
 
-// === demo: webhook sink with all the features ===
+    // handle requests in the background — capture them POST payloads
+    listenerTask = Task.Run(async () =>
+    {
+        while (true)
+        {
+            try
+            {
+                var ctx = await listener.GetContextAsync();
+                if (ctx.Request.HttpMethod == "POST" && ctx.Request.HasEntityBody)
+                {
+                    using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
+                    var body = await reader.ReadToEndAsync();
+                    capturedPayloads.Add(body);
+                }
+                ctx.Response.StatusCode = 200;
+                ctx.Response.Close();
+            }
+            catch (HttpListenerException)
+            {
+                break; // listener stopped, we out 🫡
+            }
+        }
+    });
+}
+
+// === demo 1: webhook sink with all the features ===
 // short batch interval for the demo — in prod you'd use the 2s default no cap
-Console.WriteLine("=== webhook sink demo (Warning+ to chat, 200ms batch interval) ===");
+Console.WriteLine("=== demo 1: webhook sink (Warning+ to chat, 200ms batch interval) ===");
 Console.WriteLine("  logging at all levels but only Warning+ should reach the webhook...");
 Console.WriteLine();
 
@@ -87,44 +108,51 @@ using (var factory = LoggerFactory.Create(logging =>
     await Task.Delay(600);
 }
 
-// extra wait for the HTTP round-trip to the mock listener
+// extra wait for the HTTP round-trip
 await Task.Delay(200);
 
-Console.WriteLine($"  captured {capturedPayloads.Count} webhook payload(s) 📦");
-Console.WriteLine();
-
-// === display the raw JSON hookshot would receive ===
-Console.WriteLine("=== raw JSON payload (what matrix hookshot receives) ===");
-Console.WriteLine();
-
-for (var i = 0; i < capturedPayloads.Count; i++)
+if (liveMode)
 {
-    Console.WriteLine($"  --- payload #{i + 1} ---");
-    var doc = JsonDocument.Parse(capturedPayloads[i]);
-    var prettyJson = JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
-    foreach (var line in prettyJson.Split('\n'))
-        Console.WriteLine($"  {line}");
-    Console.WriteLine();
+    Console.WriteLine("  messages yeeted to hookshot — check your Matrix room bestie 🔥");
 }
-
-// === display what this looks like in chat ===
-Console.WriteLine("=== what this looks like in matrix chat ===");
-Console.WriteLine();
-
-foreach (var payload in capturedPayloads)
+else
 {
-    var doc = JsonDocument.Parse(payload);
-    if (doc.RootElement.TryGetProperty("text", out var textElement))
+    Console.WriteLine($"  captured {capturedPayloads.Count} webhook payload(s) 📦");
+    Console.WriteLine();
+
+    // display the raw JSON hookshot would receive
+    Console.WriteLine("=== raw JSON payload (what matrix hookshot receives) ===");
+    Console.WriteLine();
+
+    for (var i = 0; i < capturedPayloads.Count; i++)
     {
-        foreach (var line in textElement.GetString()!.Split('\n'))
+        Console.WriteLine($"  --- payload #{i + 1} ---");
+        var doc = JsonDocument.Parse(capturedPayloads[i]);
+        var prettyJson = JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
+        foreach (var line in prettyJson.Split('\n'))
             Console.WriteLine($"  {line}");
+        Console.WriteLine();
+    }
+
+    // display what this looks like in chat
+    Console.WriteLine("=== what this looks like in matrix chat ===");
+    Console.WriteLine();
+
+    foreach (var payload in capturedPayloads)
+    {
+        var doc = JsonDocument.Parse(payload);
+        if (doc.RootElement.TryGetProperty("text", out var textElement))
+        {
+            foreach (var line in textElement.GetString()!.Split('\n'))
+                Console.WriteLine($"  {line}");
+        }
     }
 }
 
 Console.WriteLine();
 
 // === demo 2: custom username and timestamp-first ordering ===
-Console.WriteLine("=== custom config demo (Trace+, custom username, timestamp-first) ===");
+Console.WriteLine("=== demo 2: custom config (Trace+, custom username, timestamp-first) ===");
 capturedPayloads.Clear();
 
 using (var factory = LoggerFactory.Create(logging =>
@@ -153,24 +181,38 @@ using (var factory = LoggerFactory.Create(logging =>
 
 await Task.Delay(200);
 
-Console.WriteLine($"  captured {capturedPayloads.Count} payload(s) 📦");
-Console.WriteLine();
-
-foreach (var payload in capturedPayloads)
+if (liveMode)
 {
-    var doc = JsonDocument.Parse(payload);
-    Console.WriteLine($"  username: {doc.RootElement.GetProperty("username").GetString()}");
-    if (doc.RootElement.TryGetProperty("text", out var textElement))
-    {
-        Console.WriteLine("  messages:");
-        foreach (var line in textElement.GetString()!.Split('\n'))
-            Console.WriteLine($"    {line}");
-    }
+    Console.WriteLine("  all messages yeeted to hookshot with custom username LittyBot9000 🤖");
+}
+else
+{
+    Console.WriteLine($"  captured {capturedPayloads.Count} payload(s) 📦");
     Console.WriteLine();
+
+    foreach (var payload in capturedPayloads)
+    {
+        var doc = JsonDocument.Parse(payload);
+        Console.WriteLine($"  username: {doc.RootElement.GetProperty("username").GetString()}");
+        if (doc.RootElement.TryGetProperty("text", out var textElement))
+        {
+            Console.WriteLine("  messages:");
+            foreach (var line in textElement.GetString()!.Split('\n'))
+                Console.WriteLine($"    {line}");
+        }
+        Console.WriteLine();
+    }
 }
 
 // === cleanup ===
-listener.Stop();
-try { await listenerTask; } catch { /* listener cleanup 🫡 */ }
+if (listener is not null)
+{
+    listener.Stop();
+    try { await listenerTask!; } catch { /* listener cleanup 🫡 */ }
+}
 
-Console.WriteLine("webhook sink demo complete bestie — your logs are hitting chat with full drip 🪝🔥💅");
+Console.WriteLine();
+if (liveMode)
+    Console.WriteLine("webhook sink demo complete — your logs just hit a REAL Matrix room, go check it out bestie 🪝🔥💅");
+else
+    Console.WriteLine("webhook sink demo complete bestie — set HOOKSHOT_URL to go live next time 🪝🔥💅");

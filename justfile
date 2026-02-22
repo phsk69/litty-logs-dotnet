@@ -291,6 +291,78 @@ finish:
     echo ""
     echo "everything is pushed — pipeline go brrr 🚀🔥"
 
+# re-release the current version — nuke old tags + releases everywhere, re-do the whole thing 🔄🔥
+# for when you forgot the changelog, broke something, or just need a do-over
+# usage: just re-release
+# requires: .env with FORGEJO_PAT and GH_PAT (or set em as env vars)
+# requires: jq, gh CLI
+re-release:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # source .env if it exists for the PATs
+    if [ -f .env ]; then
+        set -a; source .env; set +a
+    fi
+    if [ -z "${FORGEJO_PAT:-}" ]; then
+        echo "bruh set FORGEJO_PAT in .env or env vars — need it to nuke the forgejo release 💀"
+        exit 1
+    fi
+    if [ -z "${GH_PAT:-}" ]; then
+        echo "bruh set GH_PAT in .env or env vars — need it to nuke the github release 💀"
+        exit 1
+    fi
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "fam your working tree is dirty, commit or stash first no cap 😤"
+        exit 1
+    fi
+    version=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
+    tag="v${version}"
+    echo ""
+    echo "🔄 re-releasing ${tag} — nuking old releases and re-doing everything bestie"
+    echo ""
+    # 1. nuke github release + tag (pipeline's gh release create aint idempotent so this MUST die)
+    echo "💀 nuking github release + tag..."
+    GH_TOKEN="$GH_PAT" /usr/bin/gh release delete "${tag}" --repo phsk69/litty-logs-dotnet --yes --cleanup-tag 2>/dev/null \
+        && echo "  github release nuked 🗑️" \
+        || echo "  no github release to nuke (or already gone) 🤷"
+    # 2. nuke forgejo release via API (we want fresh release notes from the updated changelog)
+    echo "💀 nuking forgejo release..."
+    FORGEJO_URL="https://git.ssy.dk/api/v1"
+    REPO="public/litty-logs-dotnet"
+    RELEASE_ID=$(curl -s -H "Authorization: token ${FORGEJO_PAT}" \
+        "${FORGEJO_URL}/repos/${REPO}/releases/tags/${tag}" | jq -r '.id // empty' 2>/dev/null)
+    if [ -n "$RELEASE_ID" ]; then
+        curl -s -X DELETE -H "Authorization: token ${FORGEJO_PAT}" \
+            "${FORGEJO_URL}/repos/${REPO}/releases/${RELEASE_ID}" > /dev/null
+        echo "  forgejo release nuked 🗑️"
+    else
+        echo "  no forgejo release to nuke (or already gone) 🤷"
+    fi
+    # 3. nuke remote tag on forgejo
+    echo "💀 nuking remote tag..."
+    git push origin :refs/tags/"${tag}" 2>/dev/null \
+        && echo "  remote tag nuked 🗑️" \
+        || echo "  remote tag already gone 🤷"
+    # 4. nuke local tag
+    echo "💀 nuking local tag..."
+    git tag -d "${tag}" 2>/dev/null \
+        && echo "  local tag nuked 🗑️" \
+        || echo "  local tag already gone 🤷"
+    echo ""
+    echo "🔥 old ${tag} is fully yeeted — re-releasing now..."
+    echo ""
+    # 5. gitflow release start/finish — creates fresh tag on main
+    git flow release start "${tag}"
+    GIT_MERGE_AUTOEDIT=no git flow release finish "${tag}" -m "${tag} re-released no cap 🔄🔥"
+    echo ""
+    echo "=========================================="
+    echo "  ${tag} re-released 🔄🔥"
+    echo "=========================================="
+    echo ""
+    echo "pushing develop, main, and tag to origin 📤"
+    git push origin develop main "${tag}"
+    echo "everything is pushed — pipeline go brrr 🚀🔥"
+
 # manually yeet packages to nuget.org — for local dev releases / testing 📤
 nuget-push:
     #!/usr/bin/env bash
