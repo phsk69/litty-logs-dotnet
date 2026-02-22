@@ -2,6 +2,22 @@
 
 all the glow ups and level ups for litty-logs no cap
 
+## [0.2.2] - 2026-02-22
+
+### pipeline glow up — fully retryable release pipeline 🔄🔥
+
+#### fixed — github release step bricks on re-run 💀
+- `gh release create` straight up fails if the release already exists on github (e.g. when you re-run the pipeline from the forgejo UI)
+- now we check if the release exists first — if it does we just upload fresh `.nupkg` assets with `--clobber`
+- if it doesnt exist we create it like normal
+- the forgejo release step was already retryable, now github matches. whole pipeline is re-run safe no cap 🔄
+
+#### removed — overengineered publish approval gate 🗑️
+- yeeted the draft release + publish.yml dual-trigger approach that was mega cooked
+- turns out the standard pattern is dead simple: tag push → CI builds + tests → auto-publish if tests pass
+- the CI pipeline IS the gate. if tests fail nothing ships. if they pass everything ships. thats how every repo on earth does it fr fr
+- one workflow file (`release.yml`) does the entire pipeline in one shot — build, test, pack, NuGet, forgejo release, github release 🔥
+
 ## [0.2.1] - 2026-02-22
 
 ### the webhook rendering hotfix — chat output went from bricked to bussin 🪝🔥
