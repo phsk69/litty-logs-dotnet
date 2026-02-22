@@ -26,17 +26,20 @@ newlines in log messages could create fake log entries in text output (JSON form
 
 see: `LittyLogsFormatHelper.cs` — `FormatLogLine()` sanitizes the message before appending
 
-### markdown injection prevention (webhook sink) 🔒
+### content injection prevention (webhook sink) 🔒
 
 webhook messages get rendered by chat platforms (Matrix hookshot, Teams, etc). malicious log messages could embed:
 
+- **XSS**: `<script>alert('pwned')</script>` — could execute JavaScript in web-based clients
 - **tracking pixels**: `![pixel](https://evil.com/track.png)` — renders as an invisible image, leaks IP addresses
 - **phishing links**: `[click here](https://evil.com/steal-creds)` — renders as a clickable link
 - **formatting spam**: `# HUGE TEXT` or `**bold spam**` — disrupts the chat channel
 
-litty-logs backslash-escapes all markdown syntax characters (`\ [ ] ( ) ! * _ ` # > |`) in webhook messages so they render as literal text. exception code blocks (triple backtick fences) are added AFTER escaping so they still render properly in chat
+litty-logs sends an `html` field in the webhook payload (hookshot prefers it over `text` for rendering). all message content is encoded via `System.Net.WebUtility.HtmlEncode()` — the standard .NET HTML encoding method that handles `<`, `>`, `&`, `"`, and `'`. this means ALL content renders as literal text, no executable HTML or markdown. exception stack traces get wrapped in `<pre><code>` blocks for proper monospace rendering
 
-see: `MarkdownSanitizer.cs` — `EscapeMarkdown()` method, called from `LittyWebhookLogger.cs`
+the `text` field (markdown fallback for clients without HTML support) uses `\n\n` paragraph breaks between messages so they render as separate blocks per the CommonMark spec
+
+see: `Formatters/MatrixPayloadFormatter.cs` — `MessageToHtml()` method uses `WebUtility.HtmlEncode()`
 
 ### HTTP category filtering (infinite loop + URL exposure prevention) 🔒
 

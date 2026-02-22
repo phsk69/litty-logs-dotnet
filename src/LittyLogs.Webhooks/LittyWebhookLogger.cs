@@ -39,11 +39,9 @@ internal sealed class LittyWebhookLogger(
         var formatted = LittyLogsFormatHelper.FormatLogLine(
             logLevel, categoryName, message, exception, littyOptions);
 
-        // escape markdown syntax so hookshot renders text literally, not as clickable links/images
-        // blocks tracking pixels, phishing links, and formatting injection no cap 🔒
-        formatted = MarkdownSanitizer.EscapeMarkdown(formatted);
-
         // if theres an exception, wrap it in a markdown code block so it renders nice in chat
+        // security: WebUtility.HtmlEncode() in the formatter handles injection for the html field
+        // hookshot prefers html when present — no custom sanitizer needed 🔒
         if (exception is not null)
         {
             formatted += $"\n```\n{exception}\n```";

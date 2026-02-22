@@ -2,6 +2,46 @@
 
 all the glow ups and level ups for litty-logs no cap
 
+## [0.2.1] - 2026-02-22
+
+### the webhook rendering hotfix — chat output went from bricked to bussin 🪝🔥
+
+v0.2.0 shipped with webhook rendering that was MEGA COOKED in Matrix chat — all messages mashed into one line, brackets getting backslash-escaped, emojis rendering as literal boxes. three rounds of fixes later we absolutely cracked it. the vibes are immaculate now bestie 💅
+
+#### fixed — messages mashed into one line in Matrix chat 💀
+- hookshot treats the `text` field as CommonMark markdown where single `\n` = soft line break = COLLAPSED TO A SPACE
+- our `string.Join("\n", messages)` was feeding hookshot one giant paragraph instead of separate lines
+- now we send an `html` field alongside `text` — hookshot PREFERS html when present (per the docs)
+- messages separated by `<br/>` in HTML, `\n\n` (paragraph breaks) in text fallback
+- exception stack traces render in `<pre><code>` blocks for that proper monospace energy
+
+#### fixed — emojis rendering as boxes in Matrix chat 💀
+- `System.Net.WebUtility.HtmlEncode()` encodes ALL chars >= 160 to numeric HTML entities (`&#128548;`)
+- Matrix hookshot cant render those as actual emojis — just shows boxes
+- replaced with minimal `HtmlEscape()` that only encodes the 5 dangerous HTML chars (`<>&"'`)
+- emojis stay as literal UTF-8 bytes — 😤💀☠️🔥 all rendering perfectly now
+
+#### fixed — brackets getting backslash-escaped in chat output 💀
+- the custom `MarkdownSanitizer` was escaping `[` `]` in our log format `[😤 warning] [timestamp] [category]`
+- Matrix rendered `\[😤 warning\]` with literal backslashes — thats not it
+- yeeted the entire `MarkdownSanitizer.cs` — HTML encoding in the formatter handles all injection now
+- no more cursed custom regex markdown escaping, just the stdlib doing its job no cap 🗑️
+
+#### fixed — webhook example not loading `.env` file 💀
+- .NET dont load `.env` files natively — `Environment.GetEnvironmentVariable("HOOKSHOT_URL")` was always null even with `.env` in the repo root
+- added a simple `.env` file parser at the top of the webhook example that walks up the directory tree
+- mock mode works from any directory, live mode works when `.env` has `HOOKSHOT_URL` set
+
+#### changed — security approach for webhook messages 🔒
+- markdown injection prevention now uses HTML encoding via `HtmlEscape()` instead of custom `MarkdownSanitizer`
+- hookshot renders the `html` field directly — no markdown parsing means no markdown injection possible
+- XSS, tracking pixels, phishing links all neutralized by standard HTML char escaping
+- `docs/security.md` updated to document the new approach
+
+#### changed — test count 🧪
+- 216 tests all passing (up from 213 in v0.2.0)
+- new tests verify: html field presence, `<br/>` line breaks, `<pre><code>` exception blocks, HTML encoding of XSS/links/images, paragraph breaks in text fallback
+
 ## [0.2.0] - 2026-02-22
 
 ### the webhook era — yeet logs to Matrix chat AND a security glow up 🪝🔒🔥

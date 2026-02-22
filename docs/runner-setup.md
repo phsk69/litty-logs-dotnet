@@ -49,7 +49,7 @@ go to your forgejo repo → Settings → Actions → Secrets and add these:
 
 ## runner registration 🏃
 
-the runner needs to be registered with your forgejo instance. the workflows use `runs-on: self-hosted`.
+the runner needs to be registered with your forgejo instance. the workflows use `runs-on: linux`.
 
 ```bash
 # download forgejo-runner (check forgejo docs for latest version)
@@ -58,7 +58,7 @@ forgejo-runner register \
   --instance https://git.dom.tld \
   --token YOUR_RUNNER_TOKEN \
   --name litty-runner \
-  --labels self-hosted
+  --labels linux
 
 # start it up
 forgejo-runner daemon
