@@ -4,48 +4,27 @@ stuff thats coming, stuff we're manifesting, and stuff that would go crazy if so
 
 ---
 
-## up next — webhook sink (`LittyLogs.Webhooks`) 🪝
+## shipped — webhook sink (`LittyLogs.Webhooks`) 🪝✅
 
-yeet your logs straight to where the squad is. critical error? dont wait for someone to open grafana — it lands in the chat room formatted all nice
+Matrix hookshot support is LIVE. Teams stub is ready to cook when we get to it
 
-### Matrix (hookshot) — first priority 🟣
+### whats in the package rn
+- `AddLittyMatrixLogs(url)` — one liner to yeet logs to Matrix via hookshot
+- `AddLittyMatrixLogs(url, opts => ...)` — full control over MinimumLevel, batch config, username
+- `IWebhookPayloadFormatter` interface for platform-specific formatters
+- `MatrixPayloadFormatter` — hookshot JSON with markdown, emojis survive serialization
+- `TeamsPayloadFormatter` — stub ready for Adaptive Cards implementation
+- async `Channel<T>` batching (2s interval / 10 messages)
+- `IHttpClientFactory` + Polly resilience (retry, circuit breaker, timeout)
+- best-effort delivery — never crashes your app over a failed webhook
 
-- `AddLittyMatrixLogs("https://hookshot.example.com/webhook/abc123")` — one liner
-- hookshot webhook format with markdown formatting
-- emoji + level + category + message, exceptions in code blocks
-- configurable `MinimumLevel` (default: `Warning`) so chat dont get spammed
+---
 
-### Teams (Adaptive Cards) — second priority 🟦
+## up next — teams adaptive cards 🟦
 
-- `AddLittyTeamsLogs("https://outlook.office.com/webhook/...")` — one liner
-- Adaptive Card JSON with colored containers per severity
-- same level filtering and formatting as Matrix
-
-### architecture
-
-- new package: `LittyLogs.Webhooks`
-- follows the file sink pattern: `ILoggerProvider` + `ILogger` + async `Channel<T>` writer
-- `IHttpClientFactory` with named client — proper socket management no cap
-- `Microsoft.Extensions.Http.Resilience` (Polly) — retry with exponential backoff, circuit breaker, per-request timeout
-- batching: groups messages by interval (2s default) or batch size (10 default) to avoid spamming
-- best-effort delivery — if webhook is bricked after retries, drop the message, dont crash the app
-- platform-specific payload formatters behind `IWebhookPayloadFormatter` interface
-
-### project structure
-
-```
-src/LittyLogs.Webhooks/
-├── LittyWebhookProvider.cs       — ILoggerProvider
-├── LittyWebhookLogger.cs         — ILogger with min level filtering
-├── LittyWebhookWriter.cs         — async Channel + HttpClient + batching
-├── LittyWebhookOptions.cs        — url, platform, min level, batch config
-├── LittyWebhookExtensions.cs     — AddLittyMatrixLogs() / AddLittyTeamsLogs()
-├── WebhookPlatform.cs            — enum: Matrix, Teams
-└── Formatters/
-    ├── IWebhookPayloadFormatter.cs
-    ├── MatrixPayloadFormatter.cs  — hookshot JSON + markdown
-    └── TeamsPayloadFormatter.cs   — Adaptive Card JSON
-```
+- implement `TeamsPayloadFormatter` with colored containers per severity
+- `AddLittyTeamsLogs("https://outlook.office.com/webhook/...")` already wired up, just needs the formatter
+- same architecture as Matrix, just different payload JSON
 
 ---
 

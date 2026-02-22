@@ -32,7 +32,10 @@ dotnet add package LittyLogs.Xunit
 # for file sink with rotation and gzip compression (optional, separate package)
 dotnet add package LittyLogs.File
 
-# for the CLI tool that litty-fies build and test output
+# for webhook sink — yeet logs to Matrix, Teams, etc (optional, separate package)
+dotnet add package LittyLogs.Webhooks
+
+# for the CLI tool that litty-fies build, test, publish, and pack output
 dotnet tool install --global LittyLogs.Tool
 ```
 
@@ -149,6 +152,38 @@ features that go hard:
 - **startup safeguard** — never auto-rotates on startup, only rotates before writing the next entry 🔒
 - **no ANSI codes** — files never get terminal escape chars, thats cursed 💀
 
+### webhook sink — yeet logs to Matrix chat 🪝
+
+critical error hits? your group chat knows about it instantly, formatted all nice with emojis
+
+```csharp
+using LittyLogs.Webhooks;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Logging.AddLittyMatrixLogs("https://hookshot.example.com/webhook/abc123"); // one liner bestie 🟣
+var app = builder.Build();
+app.Run();
+```
+
+with full options:
+```csharp
+builder.Logging.AddLittyMatrixLogs("https://hookshot.example.com/webhook/abc123", opts =>
+{
+    opts.MinimumLevel = LogLevel.Warning;   // only Warning+ goes to chat (default)
+    opts.Username = "LittyLogs";            // bot display name in chat
+    opts.BatchSize = 10;                    // max messages per batch
+    opts.BatchInterval = TimeSpan.FromSeconds(2); // flush interval
+});
+```
+
+features that go hard:
+- **async batching** — `Channel<T>` based, groups messages by interval (2s) or count (10), your app thread never blocks 👑
+- **Polly resilience** — retry with exponential backoff, circuit breaker, per-request timeout via `Microsoft.Extensions.Http.Resilience` 🔒
+- **best-effort** — if the webhook is bricked after retries, we drop the batch and keep vibing. never crashes your app no cap
+- **min level filtering** — default `Warning` so your chat dont get spammed with trace logs 💀
+- **IHttpClientFactory** — proper socket management, named client `"LittyWebhooks"` for custom config
+- **Matrix hookshot format** — markdown messages with emojis, exceptions in code blocks
+
 ## what gets litty-fied
 
 all the boring framework messages you see every `dotnet run`:
@@ -190,9 +225,9 @@ builder.Logging.AddLittyLogs(options =>
 });
 ```
 
-## `dotnet litty` CLI tool — litty-fy your build and test output 🧪
+## `dotnet litty` CLI tool — litty-fy your build, test, publish, and pack output 🧪
 
-your app logs are litty but `dotnet build` and `dotnet test` output is still giving corporate energy? install the tool and never look at boring terminal output again no cap
+your app logs are litty but `dotnet build`, `dotnet test`, `dotnet publish`, and `dotnet pack` output is still giving corporate energy? install the tool and never look at boring terminal output again no cap
 
 ```bash
 # install the tool
@@ -204,9 +239,17 @@ dotnet litty test
 # litty-fy your build output
 dotnet litty build
 
+# litty-fy your publish output
+dotnet litty publish
+
+# litty-fy your pack output — nupkgs go brrr 📦
+dotnet litty pack
+
 # all args pass through to the underlying dotnet command
 dotnet litty test --filter "FullyQualifiedName~MyTests"
 dotnet litty build -c Release
+dotnet litty publish -c Release --self-contained
+dotnet litty pack -c Release
 ```
 
 ### before (boring test output) 💀
@@ -241,7 +284,7 @@ logger.LogInformation("my custom message stays exactly like this");
 
 ## examples
 
-six example projects in `examples/` so you can see litty-logs in every scenario:
+seven example projects in `examples/` so you can see litty-logs in every scenario:
 
 | example | what it shows | run it |
 |---|---|---|
@@ -251,6 +294,7 @@ six example projects in `examples/` so you can see litty-logs in every scenario:
 | `Xunit` | litty-fied xUnit test output with all log levels + TimestampFirst test | `just example xunit` |
 | `Json` | structured JSON logging with both timestamp configs | `just example json` |
 | `FileSink` | file sink with level-first → timestamp-first → JSON, reads em all back | `just example filesink` |
+| `Webhooks` | webhook sink with mock listener — captures payloads, shows chat output | `just example webhooks` |
 
 every example auto-showcases ALL the modes when you run it — no hidden flags, no secret handshakes. you run it, you see everything 💅
 
@@ -266,7 +310,9 @@ this project uses [just](https://just.systems) as the task runner. here are the 
 | `just test` | run all tests |
 | `just litty-build` | build with litty-fied output 🔥 |
 | `just litty-test` | test with litty-fied output 🔥 |
-| `just pack` | pack all four NuGet packages |
+| `just litty-publish` | publish with litty-fied output 📤 |
+| `just litty-pack` | pack with litty-fied output 📦 |
+| `just pack` | pack all five NuGet packages |
 | `just clean` | yeet all build artifacts |
 | `just bump patch` | bump the patch version (also: `minor`, `major`) |
 | `just bump-pre dev.1` | slap a pre-release label on (e.g. `0.1.0-dev.1`) |
@@ -294,7 +340,7 @@ source completions/just.bash  # bash
 
 ### versioning
 
-version lives in one place: `Directory.Build.props`. all four packages inherit from it. we use [gitflow](https://nvie.com/posts/a-successful-git-branching-model/) via the `git flow` CLI — `main` is production, `develop` is the integration branch, releases and hotfixes get their own branches 🔥
+version lives in one place: `Directory.Build.props`. all five packages inherit from it. we use [gitflow](https://nvie.com/posts/a-successful-git-branching-model/) via the `git flow` CLI — `main` is production, `develop` is the integration branch, releases and hotfixes get their own branches 🔥
 
 ### release flow (gitflow)
 
@@ -332,7 +378,7 @@ forgejo actions on a self-hosted runner handles the whole squad:
 
 - **CI** (`ci.yml`) — builds, tests (with litty output 🔥), and packs on every push/PR to `develop` and `main`. if this fails your code is bricked and you should not merge no cap
 - **Release** (`release.yml`) — triggered by `v*` tags. the full pipeline hits THREE destinations:
-  1. **nuget.org** — all four `.nupkg` files with `--skip-duplicate` so retries dont catch Ls
+  1. **nuget.org** — all five `.nupkg` files with `--skip-duplicate` so retries dont catch Ls
   2. **forgejo releases** — via Gitea API with `.nupkg` assets attached 🏠
   3. **github mirror releases** — via `gh` CLI with `.nupkg` assets on the [mirror repo](https://github.com/phsk69/litty-logs-dotnet/releases) 🐙
 
@@ -348,7 +394,7 @@ see [`docs/runner-setup.md`](docs/runner-setup.md) for runner setup and required
 
 stuff that would go absolutely crazy but aint started yet. vibes only rn no cap
 
-- 🪝 **webhook sinks** (`LittyLogs.Webhooks`) — yeet logs to Matrix (hookshot), Teams (Adaptive Cards), and more. critical error hits the chat room formatted all nice instead of rotting in a log file
+- 🟦 **Teams Adaptive Cards** — colored containers per severity, webhook sink already has the stub ready to cook
 - 💬 **Slack webhook sink** — Block Kit formatter for the Slack besties
 - 🟣 **Matrix Client-Server API** — direct room messages for power users who want full HTML control instead of hookshot
 - 🎨 **custom webhook templates** — user-defined message format strings so you can make it look however you want
@@ -356,6 +402,19 @@ stuff that would go absolutely crazy but aint started yet. vibes only rn no cap
 - 📊 **structured log enrichment** — auto-attach machine name, environment, correlation IDs to webhook messages
 
 wanna see one of these happen? PRs are open bestie, or just vibe in the issues 💅
+
+## security 🔒
+
+litty-logs takes security seriously even though we dont take ourselves seriously no cap. heres the tldr:
+
+- **webhook URL validation** — SSRF prevention, only `http`/`https` schemes allowed
+- **log injection prevention** — newlines in messages get sanitized to spaces in text output
+- **markdown injection prevention** — webhook messages escape markdown syntax so no tracking pixels or phishing links in your chat
+- **HTTP category filtering** — prevents infinite recursion AND accidental webhook URL token exposure
+
+full details in [`docs/security.md`](docs/security.md)
+
+found a vulnerability? dont yeet it in a public issue — open a [security advisory](https://github.com/phsk69/litty-logs-dotnet/security/advisories/new) instead bestie 🔒
 
 ## license
 

@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- NuGet package metadata so the webhook besties can yeet logs to chat 🪝 -->
+    <IsPackable>true</IsPackable>
+    <PackageId>LittyLogs.Webhooks</PackageId>
+    <Description>webhook sink for litty-logs. yeets litty-fied logs straight to Matrix chat rooms via hookshot webhooks. your critical errors land in the group chat formatted all nice instead of rotting in a log file no cap 🔥</Description>
+    <PackageTags>logging;webhook;matrix;hookshot;teams;emoji;gen-alpha;litty;notifications</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <!-- let the test project peek at our internals bestie 🔍 -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="LittyLogs.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.*" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.*" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.0.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LittyLogs\LittyLogs.csproj" />
+  </ItemGroup>
+
+</Project>
