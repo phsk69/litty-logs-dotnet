@@ -601,13 +601,101 @@ public class LittyWebhookTests
     }
 
     // ===============================
-    // MARKDOWN SANITIZATION — no tracking pixels or phishing links in chat bestie 🔒
+    // HTML ENCODING — WebUtility.HtmlEncode() handles injection, hookshot uses html field 🔒
+    // no more cursed custom markdown sanitizer — stdlib ate and left no crumbs 💅
     // ===============================
 
     [Fact]
-    public async Task Logger_MarkdownImage_EscapedInPayload()
+    public async Task Payload_ContainsHtmlField_HookshotPrefersIt()
     {
-        // tracking pixel attempt — should NOT render as an image in hookshot 🔒
+        // hookshot docs say: when html field is present, it takes priority over text for rendering
+        // we send both for maximum compatibility no cap 🔥
+        var (logger, writer, capturedRequests) = CreateTestLogger(LogLevel.Warning);
+
+        logger.LogWarning("yo something sus just happened bestie");
+
+        await Task.Delay(300);
+        await writer.DisposeAsync();
+
+        Assert.True(capturedRequests.Count >= 1, "warning should reach HTTP");
+        var doc = JsonDocument.Parse(capturedRequests.First());
+        // both fields present
+        Assert.True(doc.RootElement.TryGetProperty("text", out _), "text field should exist as fallback");
+        Assert.True(doc.RootElement.TryGetProperty("html", out _), "html field should exist for rendering");
+        _logger.LogInformation("payload has both text and html fields — hookshot prefers html 🔥");
+    }
+
+    [Fact]
+    public async Task Payload_MultipleBatchedMessages_HtmlHasLineBreaks()
+    {
+        // THE fix for messages mashed into one line — html field uses <br/> between messages
+        // this is the whole point of the v0.2.1 hotfix bestie 🔥
+        var (logger, writer, capturedRequests) = CreateTestLogger(LogLevel.Warning);
+
+        logger.LogWarning("first warning bestie");
+        logger.LogError("second one is an L");
+        logger.LogCritical("third one we are SO cooked");
+
+        await Task.Delay(300);
+        await writer.DisposeAsync();
+
+        Assert.True(capturedRequests.Count >= 1, "messages should batch together");
+        var doc = JsonDocument.Parse(capturedRequests.First());
+        var html = doc.RootElement.GetProperty("html").GetString()!;
+        var text = doc.RootElement.GetProperty("text").GetString()!;
+        // html: messages separated by <br/> for proper line breaks in hookshot
+        Assert.Contains("<br/>", html);
+        // text: paragraph breaks (\n\n) for markdown fallback
+        Assert.Contains("\n\n", text);
+        _logger.LogInformation("batched messages have proper line breaks in both fields 🔥");
+    }
+
+    [Fact]
+    public async Task HtmlField_HtmlEncodesInjectionAttempts()
+    {
+        // WebUtility.HtmlEncode() handles ALL injection — XSS, tracking pixels, phishing links
+        // no custom sanitizer needed when the stdlib already solved this bestie 💅
+        var (logger, writer, capturedRequests) = CreateTestLogger(LogLevel.Warning);
+
+        logger.LogWarning("xss attempt <script>alert('pwned')</script> bestie");
+
+        await Task.Delay(300);
+        await writer.DisposeAsync();
+
+        Assert.True(capturedRequests.Count >= 1, "warning should reach HTTP");
+        var doc = JsonDocument.Parse(capturedRequests.First());
+        var html = doc.RootElement.GetProperty("html").GetString()!;
+        // script tag should be HTML-encoded, not executable
+        Assert.DoesNotContain("<script>", html);
+        Assert.Contains("&lt;script&gt;", html);
+        _logger.LogInformation("XSS injection neutralized by HtmlEncode — stdlib ate 🔒");
+    }
+
+    [Fact]
+    public async Task HtmlField_MarkdownLink_NeutralizedByHtmlEncoding()
+    {
+        // phishing link attempt — HtmlEncode turns [text](url) into literal text
+        // no clickable links in hookshot when rendered from html field 🔒
+        var (logger, writer, capturedRequests) = CreateTestLogger(LogLevel.Warning);
+
+        logger.LogWarning("click [totally legit](https://phishing.example.com/steal) fr");
+
+        await Task.Delay(300);
+        await writer.DisposeAsync();
+
+        Assert.True(capturedRequests.Count >= 1, "warning should reach HTTP");
+        var doc = JsonDocument.Parse(capturedRequests.First());
+        var html = doc.RootElement.GetProperty("html").GetString()!;
+        // the whole thing is HTML-encoded — renders as literal text, not a clickable link
+        Assert.DoesNotContain("href", html);
+        Assert.DoesNotContain("<a ", html);
+        _logger.LogInformation("markdown link injection neutralized via HtmlEncode 🔒");
+    }
+
+    [Fact]
+    public async Task HtmlField_MarkdownImage_NeutralizedByHtmlEncoding()
+    {
+        // tracking pixel attempt — HtmlEncode prevents image rendering in hookshot 🔒
         var (logger, writer, capturedRequests) = CreateTestLogger(LogLevel.Warning);
 
         logger.LogWarning("check this out ![tracking](https://evil.com/pixel.png) bestie");
@@ -617,38 +705,18 @@ public class LittyWebhookTests
 
         Assert.True(capturedRequests.Count >= 1, "warning should reach HTTP");
         var doc = JsonDocument.Parse(capturedRequests.First());
-        var text = doc.RootElement.GetProperty("text").GetString()!;
-        // brackets and parens should be backslash-escaped so hookshot renders em as literal text
-        Assert.Contains("\\!", text);
-        Assert.Contains("\\[tracking\\]", text);
-        Assert.Contains("\\(https://evil.com/pixel.png\\)", text);
-        _logger.LogInformation("markdown image injection neutralized — no tracking pixels in chat 🔒");
+        var html = doc.RootElement.GetProperty("html").GetString()!;
+        // no <img> tags — everything is HTML-encoded literal text
+        Assert.DoesNotContain("<img", html);
+        Assert.Contains("![tracking]", html); // literal text, not rendered
+        _logger.LogInformation("markdown image injection neutralized via HtmlEncode — no tracking pixels 🔒");
     }
 
     [Fact]
-    public async Task Logger_MarkdownLink_EscapedInPayload()
+    public async Task HtmlField_ExceptionCodeBlock_RendersAsPreCode()
     {
-        // phishing link attempt — should NOT render as clickable in hookshot 🔒
-        var (logger, writer, capturedRequests) = CreateTestLogger(LogLevel.Warning);
-
-        logger.LogWarning("yo click [totally legit](https://phishing.example.com/steal-creds) fr");
-
-        await Task.Delay(300);
-        await writer.DisposeAsync();
-
-        Assert.True(capturedRequests.Count >= 1, "warning should reach HTTP");
-        var doc = JsonDocument.Parse(capturedRequests.First());
-        var text = doc.RootElement.GetProperty("text").GetString()!;
-        Assert.Contains("\\[totally legit\\]", text);
-        Assert.Contains("\\(https://phishing.example.com/steal-creds\\)", text);
-        _logger.LogInformation("markdown link injection neutralized — no phishing links in chat 🔒");
-    }
-
-    [Fact]
-    public async Task Logger_ExceptionCodeBlock_SurvivesMarkdownEscaping()
-    {
-        // exception code fences (```) are added AFTER markdown escaping
-        // so they should survive and render properly in hookshot 🔥
+        // exceptions get wrapped in <pre><code> for proper monospace rendering in hookshot
+        // the code fences (```) from the logger get converted to HTML in the formatter 🔥
         var (logger, writer, capturedRequests) = CreateTestLogger(LogLevel.Warning);
 
         try
@@ -665,21 +733,38 @@ public class LittyWebhookTests
 
         Assert.True(capturedRequests.Count >= 1, "error with exception should reach HTTP");
         var doc = JsonDocument.Parse(capturedRequests.First());
+        var html = doc.RootElement.GetProperty("html").GetString()!;
         var text = doc.RootElement.GetProperty("text").GetString()!;
-        // triple backtick fences should be present (added after escaping)
+        // html: exception in <pre><code> block
+        Assert.Contains("<pre><code>", html);
+        Assert.Contains("</code></pre>", html);
+        Assert.Contains("database absolutely cooked", html);
+        // text: markdown code fences still present for fallback
         Assert.Contains("```", text);
         Assert.Contains("database absolutely cooked", text);
-        _logger.LogInformation("exception code blocks survive markdown escaping 🔥");
+        _logger.LogInformation("exception code blocks render as <pre><code> in html field 🔥");
     }
 
     [Fact]
-    public void MarkdownSanitizer_NormalText_PassesThroughUnchanged()
+    public async Task TextFallback_ParagraphBreaks_BetweenMessages()
     {
-        // no markdown chars = zero allocations, fast path bestie 🏎️
-        var normal = "just a regular log message no cap 2026-02-22";
-        var result = MarkdownSanitizer.EscapeMarkdown(normal);
-        Assert.Equal(normal, result);
-        _logger.LogInformation("normal text passes through unchanged 💅");
+        // text field uses \n\n (paragraph breaks) so even the markdown fallback renders properly
+        // CommonMark spec: blank line = paragraph break = guaranteed separate blocks 💅
+        var (logger, writer, capturedRequests) = CreateTestLogger(LogLevel.Warning);
+
+        logger.LogWarning("first message");
+        logger.LogError("second message");
+
+        await Task.Delay(300);
+        await writer.DisposeAsync();
+
+        Assert.True(capturedRequests.Count >= 1, "messages should batch together");
+        var doc = JsonDocument.Parse(capturedRequests.First());
+        var text = doc.RootElement.GetProperty("text").GetString()!;
+        // paragraph breaks between messages — not single \n that gets collapsed
+        Assert.Contains("\n\n", text);
+        Assert.DoesNotContain("first message" + "second message", text); // NOT mashed together
+        _logger.LogInformation("text fallback has paragraph breaks between messages 💅");
     }
 
     // ===============================

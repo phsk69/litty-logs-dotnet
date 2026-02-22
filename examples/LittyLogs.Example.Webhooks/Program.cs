@@ -4,6 +4,31 @@ using System.Text.Json;
 using LittyLogs.Webhooks;
 using Microsoft.Extensions.Logging;
 
+// load .env file if it exists — .NET dont do this natively so we roll our own 💅
+// looks for .env in the repo root (walks up from the binary dir)
+var dir = Directory.GetCurrentDirectory();
+while (dir is not null)
+{
+    var envFile = Path.Combine(dir, ".env");
+    if (File.Exists(envFile))
+    {
+        foreach (var line in File.ReadAllLines(envFile))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length == 0 || trimmed.StartsWith('#'))
+                continue;
+            var eq = trimmed.IndexOf('=');
+            if (eq <= 0)
+                continue;
+            var key = trimmed[..eq].Trim();
+            var val = trimmed[(eq + 1)..].Trim();
+            Environment.SetEnvironmentVariable(key, val);
+        }
+        break;
+    }
+    dir = Directory.GetParent(dir)?.FullName;
+}
+
 Console.WriteLine("🪝 litty-logs webhook sink example — yeet logs to chat no cap 🔥");
 Console.WriteLine();
 
