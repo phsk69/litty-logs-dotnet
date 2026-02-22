@@ -303,6 +303,10 @@ re-release:
     if [ -f .env ]; then
         set -a; source .env; set +a
     fi
+    if [ -z "${FORGEJO_BASE_URL:-}" ]; then
+        echo "bruh set FORGEJO_BASE_URL in .env or env vars — need it to find your forgejo instance 💀"
+        exit 1
+    fi
     if [ -z "${FORGEJO_PAT:-}" ]; then
         echo "bruh set FORGEJO_PAT in .env or env vars — need it to nuke the forgejo release 💀"
         exit 1
@@ -327,7 +331,7 @@ re-release:
         || echo "  no github release to nuke (or already gone) 🤷"
     # 2. nuke forgejo release via API (we want fresh release notes from the updated changelog)
     echo "💀 nuking forgejo release..."
-    FORGEJO_URL="https://git.ssy.dk/api/v1"
+    FORGEJO_URL="${FORGEJO_BASE_URL}/api/v1"
     REPO="public/litty-logs-dotnet"
     RELEASE_ID=$(curl -s -H "Authorization: token ${FORGEJO_PAT}" \
         "${FORGEJO_URL}/repos/${REPO}/releases/tags/${tag}" | jq -r '.id // empty' 2>/dev/null)
