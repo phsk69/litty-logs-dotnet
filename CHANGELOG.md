@@ -2,6 +2,61 @@
 
 all the glow ups and level ups for litty-logs no cap
 
+## [0.2.0] - 2026-02-22
+
+### the webhook era — yeet logs to Matrix chat AND a security glow up 🪝🔒🔥
+
+the biggest drop yet no cap. whole new package for webhook logging, two new CLI commands, security hardening that would make a boomer guru cry tears of joy, and a live hookshot integration demo. 213 tests all passing. we cooked HARD this release bestie 🏆
+
+#### added — `LittyLogs.Webhooks` package 🪝
+- whole new NuGet package for yeeting logs to Matrix chat via hookshot webhooks
+- `AddLittyMatrixLogs()` one-liner extension method — same energy as the other litty-logs setups
+- async batching engine using `Channel<T>` — groups messages by interval (2s default) or count (10 default), your app thread NEVER blocks 👑
+- Polly resilience via `Microsoft.Extensions.Http.Resilience` — retry with exponential backoff, circuit breaker, per-request timeout. if the webhook is bricked we drop the batch and keep vibing, never crashes your app 🔒
+- `IHttpClientFactory` with named client `"LittyWebhooks"` — proper socket management no socket exhaustion
+- min level filtering — default `Warning` so your group chat dont get spammed with trace logs 💀
+- custom username support — show up in chat as `LittyBot9000` or whatever you want
+- exceptions wrapped in markdown code blocks so they render nice in chat
+- Matrix hookshot format with full emoji support because JSON is UTF-8 native
+
+#### added — `dotnet litty pack` CLI command 📦
+- wraps `dotnet pack` and rewrites the boring nupkg output into gen alpha slang
+- `Successfully created package` lines show the filename with "cooked and ready to yeet to NuGet" energy
+- `Pack succeeded` / `Pack FAILED` get the full litty treatment
+- falls back to build rewriter for restore, compile, warnings, errors, timing
+- `just litty-pack` recipe added to justfile
+
+#### added — `dotnet litty publish` CLI command 📤
+- wraps `dotnet publish` with transforms for publish-specific output
+- self-contained, trimming, ReadyToRun, native code gen, compressing — all litty-fied
+- publish artifact paths get "packed and ready to ship" energy
+- falls back to build rewriter for all the standard MSBuild lines
+
+#### added — security hardening 🔒
+- **SSRF prevention** — webhook URLs validated at registration time with scheme restriction to `http`/`https` only. `file://`, `ftp://`, `gopher://` and other sketchy schemes get yeeted with `ArgumentException`. fail at startup not at 3am bestie
+- **log injection prevention** — newlines in text format messages (`\r\n`, `\n`, `\r`) sanitized to spaces. blocks fake log entry injection. JSON format already safe via `Utf8JsonWriter`
+- **markdown injection prevention** — webhook messages backslash-escape markdown syntax (`[]()!*_` etc) so tracking pixels and phishing links render as literal text in chat, not as clickable/renderable markdown
+- **HTTP category filtering** — `System.Net.Http`, `Microsoft.Extensions.Http`, and `Polly` categories routed to `NullLogger.Instance` in the webhook provider. prevents infinite recursion (webhook POST → HTTP log → webhook POST → ...) AND accidental webhook URL token exposure in logs
+- **`docs/security.md`** — full security documentation covering trust model, whats protected, and security reporting
+
+#### added — webhook example with live hookshot support 🪝🔥
+- `examples/LittyLogs.Example.Webhooks` — seventh example project
+- mock mode (default) — spins up local `HttpListener`, captures payloads, displays raw JSON and chat preview
+- live mode — set `HOOKSHOT_URL` env var to hit a real Matrix hookshot. logs actually land in your room no cap
+- two demos: default Warning+ config and custom Trace+ with LittyBot9000 username
+
+#### added — `just re-release` recipe 🔄
+- one command to un-brick a release when you forgot the changelog or need a do-over
+- nukes old releases on forgejo + github, deletes tags everywhere, re-does the gitflow release
+- non-fatal errors on cleanup steps so it keeps vibing even if some stuff is already gone
+- requires `.env` with `FORGEJO_PAT` and `GH_PAT`
+
+#### changed — test count 🧪
+- 213 tests all passing (up from ~150 in the expansion pack era)
+- webhook tests cover formatter, options, logger, provider, writer, integration, URL validation, markdown sanitization
+- pack rewriter tests cover all transforms + build fallback
+- publish rewriter tests cover all transforms + edge cases
+
 ## [0.1.4] - 2026-02-20
 
 ### the mirror arc — forgejo push mirroring does the heavy lifting now 🪞🔥

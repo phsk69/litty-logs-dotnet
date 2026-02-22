@@ -294,9 +294,11 @@ seven example projects in `examples/` so you can see litty-logs in every scenari
 | `Xunit` | litty-fied xUnit test output with all log levels + TimestampFirst test | `just example xunit` |
 | `Json` | structured JSON logging with both timestamp configs | `just example json` |
 | `FileSink` | file sink with level-first → timestamp-first → JSON, reads em all back | `just example filesink` |
-| `Webhooks` | webhook sink with mock listener — captures payloads, shows chat output | `just example webhooks` |
+| `Webhooks` | webhook sink with mock listener or live hookshot — set `HOOKSHOT_URL` to go live | `just example webhooks` |
 
 every example auto-showcases ALL the modes when you run it — no hidden flags, no secret handshakes. you run it, you see everything 💅
+
+the webhooks example has a special trick tho — set `HOOKSHOT_URL` env var (or put it in `.env`) and it hits a real Matrix hookshot instead of the mock listener. logs actually land in your room bestie 🪝🔥
 
 ## development — for the contributing besties 🛠️
 
@@ -318,11 +320,12 @@ this project uses [just](https://just.systems) as the task runner. here are the 
 | `just bump-pre dev.1` | slap a pre-release label on (e.g. `0.1.0-dev.1`) |
 | `just release patch` | full gitflow release — bump, branch, finish, push 🚀 |
 | `just release-current` | gitflow release without bumping (for first release etc.) |
+| `just re-release` | nuke old releases + tags everywhere, re-do the current version 🔄 |
 | `just release-dev patch` | dev/pre-release — bump + label + ship (e.g. `0.1.1-dev`) 🧪 |
 | `just hotfix patch` | start a gitflow hotfix branch off main 🚑 |
 | `just finish` | finish whatever gitflow branch youre on (hotfix/release/support) + push 🏁 |
 | `just nuget-push` | manually push packages to nuget.org |
-| `just example <name>` | run an example — `web`, `hosted`, `console`, `xunit`, `json`, `filesink` 🔥 |
+| `just example <name>` | run an example — `web`, `hosted`, `console`, `xunit`, `json`, `filesink`, `webhooks` 🔥 |
 | `just setup-completions` | install shell tab-completions for `just example <tab>` |
 
 ### shell completions

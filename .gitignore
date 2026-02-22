@@ -29,3 +29,5 @@ TestResults/
 *.log
 *.tmp
 .vscode/
+.env
+.env.*
