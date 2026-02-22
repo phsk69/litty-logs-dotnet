@@ -156,9 +156,19 @@ jobs:
             echo "mirror aint synced yet, waiting 2s... (attempt ${i}/30)"
             sleep 2
           done
-          gh release create "${TAG}" \
-            --repo "phsk69/litty-logs-dotnet" \
-            --title "v${VERSION} — new drop 🔥" \
-            --notes "$RELEASE_NOTES" \
-            $PRERELEASE_FLAG \
-            ./nupkgs/*.nupkg
+          # create or reuse github release (retryable — re-run all day no Ls 🔄)
+          if gh release view "${TAG}" --repo "phsk69/litty-logs-dotnet" > /dev/null 2>&1; then
+            echo "github release already exists — uploading fresh assets 💅"
+            gh release upload "${TAG}" \
+              --repo "phsk69/litty-logs-dotnet" \
+              --clobber \
+              ./nupkgs/*.nupkg
+          else
+            gh release create "${TAG}" \
+              --repo "phsk69/litty-logs-dotnet" \
+              --title "v${VERSION} — new drop 🔥" \
+              --notes "$RELEASE_NOTES" \
+              $PRERELEASE_FLAG \
+              ./nupkgs/*.nupkg
+          fi
+          echo "github release is bussin — packages shipped everywhere 🔥🚀"
