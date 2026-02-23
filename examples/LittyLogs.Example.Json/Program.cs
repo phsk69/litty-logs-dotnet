@@ -1,9 +1,12 @@
 using LittyLogs;
 using Microsoft.Extensions.Logging;
 
+// meta logger for structural output — we eat our own dogfood bestie 🐕
+using var meta = LoggerFactory.Create(l => l.AddLittyJsonLogs());
+var log = meta.CreateLogger("JsonExample");
+
 // === JSON logging — structured output for log aggregators to eat GOOD 🍽️ ===
-Console.WriteLine("=== JSON mode (machines eat good) ===");
-Console.WriteLine();
+log.LogInformation("=== JSON mode (machines eat good) ===");
 
 using (var factory = LoggerFactory.Create(logging =>
 {
@@ -28,14 +31,10 @@ using (var factory = LoggerFactory.Create(logging =>
     logger.LogInformation("vibes are immaculate 💅✨ and the JSON is valid no cap");
 }
 
-Console.WriteLine();
-
 // === timestamp-first + JSON — key order stays the same bestie ===
-Console.WriteLine("=== timestamp-first + JSON (key order stays the same) ===");
-Console.WriteLine();
-Console.WriteLine("  fun fact: TimestampFirst only affects text output ordering (brackets).");
-Console.WriteLine("  JSON always outputs timestamp as the first key regardless — thats just how JSON rolls 🍽️");
-Console.WriteLine();
+log.LogInformation("=== timestamp-first + JSON (key order stays the same) ===");
+log.LogInformation("fun fact: TimestampFirst only affects text output ordering (brackets)");
+log.LogInformation("JSON always outputs timestamp as the first key regardless — thats just how JSON rolls 🍽️");
 
 using (var factory = LoggerFactory.Create(logging =>
 {
@@ -49,5 +48,4 @@ using (var factory = LoggerFactory.Create(logging =>
     logger.LogWarning("TimestampFirst is a text mode thing bestie 😤");
 }
 
-Console.WriteLine();
-Console.WriteLine("^ all valid JSON bestie. emojis, rewrites, structured fields — the whole package no cap 📦🔥");
+log.LogInformation("all valid JSON bestie. emojis, rewrites, structured fields — the whole package no cap 📦🔥");

@@ -35,7 +35,7 @@ dotnet add package LittyLogs.File
 # for webhook sink — yeet logs to Matrix, Teams, etc (optional, separate package)
 dotnet add package LittyLogs.Webhooks
 
-# for the CLI tool that litty-fies build, test, publish, and pack output
+# for the CLI tool that litty-fies build, test, publish, pack, and clean output
 dotnet tool install --global LittyLogs.Tool
 ```
 
@@ -152,7 +152,7 @@ features that go hard:
 - **startup safeguard** — never auto-rotates on startup, only rotates before writing the next entry 🔒
 - **no ANSI codes** — files never get terminal escape chars, thats cursed 💀
 
-### webhook sink — yeet logs to Matrix chat 🪝
+### webhook sink — yeet logs to Matrix and Teams chat 🪝
 
 critical error hits? your group chat knows about it instantly, formatted all nice with emojis
 
@@ -183,6 +183,30 @@ features that go hard:
 - **min level filtering** — default `Warning` so your chat dont get spammed with trace logs 💀
 - **IHttpClientFactory** — proper socket management, named client `"LittyWebhooks"` for custom config
 - **Matrix hookshot format** — markdown messages with emojis, exceptions in code blocks
+
+#### Teams Adaptive Cards 🟦
+
+```csharp
+builder.Logging.AddLittyTeamsLogs("https://your-org.webhook.office.com/webhook/..."); // one liner bestie 🟦
+```
+
+with full options:
+```csharp
+builder.Logging.AddLittyTeamsLogs("https://your-org.webhook.office.com/webhook/...", opts =>
+{
+    opts.MinimumLevel = LogLevel.Warning;   // only Warning+ goes to chat (default)
+    opts.Username = "LittyLogs";            // shows in the card header
+    opts.BatchSize = 10;                    // max messages per batch
+    opts.BatchInterval = TimeSpan.FromSeconds(2); // flush interval
+});
+```
+
+Teams-specific features that go hard:
+- **Adaptive Card v1.5** — proper card format, not just plain text messages 💅
+- **severity-colored containers** — green (info), yellow (warning), red (error/critical), neutral (trace/debug) 🎨
+- **monospace TextBlocks** — log lines render in monospace for that dashboard energy
+- **exception blocks** — subtle monospace blocks underneath the log line, dont overpower the message
+- **same batching + resilience** — Channel\<T\> batching, Polly retry, circuit breaker, best-effort delivery
 
 ## what gets litty-fied
 
@@ -225,9 +249,9 @@ builder.Logging.AddLittyLogs(options =>
 });
 ```
 
-## `dotnet litty` CLI tool — litty-fy your build, test, publish, and pack output 🧪
+## `dotnet litty` CLI tool — litty-fy your build, test, publish, pack, and clean output 🧪
 
-your app logs are litty but `dotnet build`, `dotnet test`, `dotnet publish`, and `dotnet pack` output is still giving corporate energy? install the tool and never look at boring terminal output again no cap
+your app logs are litty but `dotnet build`, `dotnet test`, `dotnet publish`, `dotnet pack`, and `dotnet clean` output is still giving corporate energy? install the tool and never look at boring terminal output again no cap
 
 ```bash
 # install the tool
@@ -245,11 +269,15 @@ dotnet litty publish
 # litty-fy your pack output — nupkgs go brrr 📦
 dotnet litty pack
 
+# litty-fy your clean output — watch artifacts get yeeted in style 🗑️
+dotnet litty clean
+
 # all args pass through to the underlying dotnet command
 dotnet litty test --filter "FullyQualifiedName~MyTests"
 dotnet litty build -c Release
 dotnet litty publish -c Release --self-contained
 dotnet litty pack -c Release
+dotnet litty clean -c Release
 ```
 
 ### before (boring test output) 💀
@@ -294,11 +322,11 @@ seven example projects in `examples/` so you can see litty-logs in every scenari
 | `Xunit` | litty-fied xUnit test output with all log levels + TimestampFirst test | `just example xunit` |
 | `Json` | structured JSON logging with both timestamp configs | `just example json` |
 | `FileSink` | file sink with level-first → timestamp-first → JSON, reads em all back | `just example filesink` |
-| `Webhooks` | webhook sink with mock listener or live hookshot — set `HOOKSHOT_URL` to go live | `just example webhooks` |
+| `Webhooks` | dual webhook sink (Matrix + Teams) with mock listeners or live endpoints | `just example webhooks` |
 
 every example auto-showcases ALL the modes when you run it — no hidden flags, no secret handshakes. you run it, you see everything 💅
 
-the webhooks example has a special trick tho — set `HOOKSHOT_URL` env var (or put it in `.env`) and it hits a real Matrix hookshot instead of the mock listener. logs actually land in your room bestie 🪝🔥
+the webhooks example runs three demos: Matrix-only, Teams-only, and dual mode (both firing simultaneously). set `HOOKSHOT_URL` and/or `TEAMS_WEBHOOK_URL` in `.env` to go live — any sink without a URL falls back to a local mock listener so it always works bestie 🪝🔥
 
 ## development — for the contributing besties 🛠️
 
@@ -308,14 +336,11 @@ this project uses [just](https://just.systems) as the task runner. here are the 
 
 | recipe | what it does |
 |---|---|
-| `just build` | build the whole solution |
-| `just test` | run all tests |
-| `just litty-build` | build with litty-fied output 🔥 |
-| `just litty-test` | test with litty-fied output 🔥 |
-| `just litty-publish` | publish with litty-fied output 📤 |
-| `just litty-pack` | pack with litty-fied output 📦 |
-| `just pack` | pack all five NuGet packages |
-| `just clean` | yeet all build artifacts |
+| `just build` | build the whole solution with litty-fied output 🏗️🔥 |
+| `just test` | run all tests with litty-fied output 🧪🔥 |
+| `just publish` | publish with litty-fied output 📤🔥 |
+| `just pack` | pack all five NuGet packages with litty-fied output 📦🔥 |
+| `just clean` | yeet all build artifacts with litty-fied output 🗑️🔥 |
 | `just bump patch` | bump the patch version (also: `minor`, `major`) |
 | `just bump-pre dev.1` | slap a pre-release label on (e.g. `0.1.0-dev.1`) |
 | `just release patch` | full gitflow release — bump, branch, finish, push 🚀 |
@@ -397,7 +422,6 @@ see [`docs/runner-setup.md`](docs/runner-setup.md) for runner setup and required
 
 stuff that would go absolutely crazy but aint started yet. vibes only rn no cap
 
-- 🟦 **Teams Adaptive Cards** — colored containers per severity, webhook sink already has the stub ready to cook
 - 💬 **Slack webhook sink** — Block Kit formatter for the Slack besties
 - 🟣 **Matrix Client-Server API** — direct room messages for power users who want full HTML control instead of hookshot
 - 🎨 **custom webhook templates** — user-defined message format strings so you can make it look however you want
@@ -412,7 +436,7 @@ litty-logs takes security seriously even though we dont take ourselves seriously
 
 - **webhook URL validation** — SSRF prevention, only `http`/`https` schemes allowed
 - **log injection prevention** — newlines in messages get sanitized to spaces in text output
-- **markdown injection prevention** — webhook messages escape markdown syntax so no tracking pixels or phishing links in your chat
+- **content injection prevention** — webhook messages get HTML-encoded (Matrix) or rendered as plain text (Teams Adaptive Cards), no tracking pixels or phishing links in your chat
 - **HTTP category filtering** — prevents infinite recursion AND accidental webhook URL token exposure
 
 full details in [`docs/security.md`](docs/security.md)
