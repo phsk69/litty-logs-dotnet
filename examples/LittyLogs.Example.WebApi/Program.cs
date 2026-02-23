@@ -3,9 +3,12 @@ using Microsoft.Extensions.Logging;
 
 // === startup demo — showing all three modes before the server boots 🔥 ===
 
+// meta logger for structural output — we eat our own dogfood bestie 🐕
+using var meta = LoggerFactory.Create(l => l.AddLittyLogs());
+var log = meta.CreateLogger("WebApiExample");
+
 // level-first (RFC 5424 default)
-Console.WriteLine("=== level-first (RFC 5424 default) ===");
-Console.WriteLine();
+log.LogInformation("=== level-first (RFC 5424 default) ===");
 
 using (var factory = LoggerFactory.Create(logging =>
 {
@@ -17,11 +20,8 @@ using (var factory = LoggerFactory.Create(logging =>
     logger.LogWarning("warnings hit different with the emoji prefix 😤");
 }
 
-Console.WriteLine();
-
 // timestamp-first (observability style)
-Console.WriteLine("=== timestamp-first (observability style) ===");
-Console.WriteLine();
+log.LogInformation("=== timestamp-first (observability style) ===");
 
 using (var factory = LoggerFactory.Create(logging =>
 {
@@ -33,11 +33,8 @@ using (var factory = LoggerFactory.Create(logging =>
     logger.LogWarning("same vibes different ordering 😤");
 }
 
-Console.WriteLine();
-
 // JSON mode
-Console.WriteLine("=== JSON mode (machines eat good) ===");
-Console.WriteLine();
+log.LogInformation("=== JSON mode (machines eat good) ===");
 
 using (var factory = LoggerFactory.Create(logging =>
 {
@@ -48,9 +45,7 @@ using (var factory = LoggerFactory.Create(logging =>
     logger.LogInformation("structured JSON with emojis bestie 🍽️");
 }
 
-Console.WriteLine();
-Console.WriteLine("=== server running with default config — hit the endpoints bestie 🚀 ===");
-Console.WriteLine();
+log.LogInformation("=== server running with default config — hit the endpoints bestie 🚀 ===");
 
 // actual web api server with default litty-logs config
 var builder = WebApplication.CreateBuilder(args);

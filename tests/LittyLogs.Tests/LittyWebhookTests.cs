@@ -93,15 +93,303 @@ public class LittyWebhookTests
         _logger.LogInformation("emojis surviving JSON serialization like champs 🏆");
     }
 
+    // ===============================
+    // TEAMS FORMATTER TESTS — Adaptive Card v1.5 🟦
+    // ===============================
+
     [Fact]
-    public void TeamsFormatter_ThrowsNotImplemented()
+    public void TeamsFormatter_SingleMessage_ProducesValidAdaptiveCard()
+    {
+        var formatter = new TeamsPayloadFormatter();
+        var options = new LittyWebhookOptions { Username = "LittyLogs" };
+        var messages = new List<string> { "[🔥 info] [2026-02-22T12:00:00.000Z] [MyApp] we vibing bestie" };
+
+        var payload = formatter.FormatPayload(messages, options);
+
+        // validate the full Adaptive Card envelope structure 🔥
+        var doc = JsonDocument.Parse(payload);
+        var root = doc.RootElement;
+
+        // outer envelope
+        Assert.Equal("message", root.GetProperty("type").GetString());
+
+        // attachments array with one adaptive card
+        var attachments = root.GetProperty("attachments");
+        Assert.Equal(1, attachments.GetArrayLength());
+        var attachment = attachments[0];
+        Assert.Equal("application/vnd.microsoft.card.adaptive", attachment.GetProperty("contentType").GetString());
+
+        // the adaptive card itself — schema validation is MANDATORY no cap 🔒
+        var card = attachment.GetProperty("content");
+        Assert.Equal("http://adaptivecards.io/schemas/adaptive-card.json", card.GetProperty("$schema").GetString());
+        Assert.Equal("AdaptiveCard", card.GetProperty("type").GetString());
+        Assert.Equal("1.5", card.GetProperty("version").GetString());
+
+        // body exists and has items
+        var body = card.GetProperty("body");
+        Assert.True(body.GetArrayLength() >= 2, "body should have header + at least one container");
+
+        _logger.LogInformation("teams formatter producing valid Adaptive Card v1.5 no cap 🟦🔥");
+    }
+
+    [Fact]
+    public void TeamsFormatter_HeaderShowsUsername()
+    {
+        var formatter = new TeamsPayloadFormatter();
+        var options = new LittyWebhookOptions { Username = "CriticalAlerts" };
+        var messages = new List<string> { "[💀 err] something bricked" };
+
+        var payload = formatter.FormatPayload(messages, options);
+        var doc = JsonDocument.Parse(payload);
+        var body = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body");
+
+        // first element is the header TextBlock
+        var header = body[0];
+        Assert.Equal("TextBlock", header.GetProperty("type").GetString());
+        Assert.Contains("CriticalAlerts", header.GetProperty("text").GetString());
+        Assert.Equal("bolder", header.GetProperty("weight").GetString());
+
+        _logger.LogInformation("username flexing in the header 🤖");
+    }
+
+    [Fact]
+    public void TeamsFormatter_EmptyUsername_ShowsDefault()
+    {
+        var formatter = new TeamsPayloadFormatter();
+        var options = new LittyWebhookOptions { Username = "" };
+        var messages = new List<string> { "[🔥 info] vibes" };
+
+        var payload = formatter.FormatPayload(messages, options);
+        var doc = JsonDocument.Parse(payload);
+        var header = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body")[0];
+
+        Assert.Contains("LittyLogs", header.GetProperty("text").GetString());
+    }
+
+    [Fact]
+    public void TeamsFormatter_MultipleMessages_EachGetsOwnContainer()
+    {
+        var formatter = new TeamsPayloadFormatter();
+        var options = new LittyWebhookOptions();
+        var messages = new List<string>
+        {
+            "[🔥 info] first message bestie",
+            "[😤 warning] second one is sus",
+            "[💀 err] third one is cooked"
+        };
+
+        var payload = formatter.FormatPayload(messages, options);
+        var doc = JsonDocument.Parse(payload);
+        var body = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body");
+
+        // 1 header + 3 containers = 4 elements
+        Assert.Equal(4, body.GetArrayLength());
+
+        // elements 1-3 should be Containers
+        for (var i = 1; i <= 3; i++)
+        {
+            Assert.Equal("Container", body[i].GetProperty("type").GetString());
+            var items = body[i].GetProperty("items");
+            Assert.True(items.GetArrayLength() >= 1, $"container {i} should have at least one item");
+        }
+
+        _logger.LogInformation("each message got its own container — dashboard energy 💅");
+    }
+
+    [Fact]
+    public void TeamsFormatter_SeverityColors_MapCorrectly()
     {
         var formatter = new TeamsPayloadFormatter();
         var options = new LittyWebhookOptions();
 
-        Assert.Throws<NotImplementedException>(() =>
-            formatter.FormatPayload(["test"], options));
-        _logger.LogInformation("teams stub correctly throwing no cap 🟦");
+        // test each severity level → container style mapping
+        var testCases = new (string message, string expectedStyle)[]
+        {
+            ("[🔥 info] we vibing", "good"),
+            ("[😤 warning] something sus", "warning"),
+            ("[💀 err] big L detected", "attention"),
+            ("[☠️ crit] we are SO cooked", "attention"),
+            ("[👀 trace] peeking around", "default"),
+            ("[🔍 debug] investigating", "default"),
+        };
+
+        foreach (var (message, expectedStyle) in testCases)
+        {
+            var payload = formatter.FormatPayload([message], options);
+            var doc = JsonDocument.Parse(payload);
+            var container = doc.RootElement
+                .GetProperty("attachments")[0]
+                .GetProperty("content")
+                .GetProperty("body")[1]; // [0] is header, [1] is the message container
+
+            Assert.Equal(expectedStyle, container.GetProperty("style").GetString());
+        }
+
+        _logger.LogInformation("severity colors going crazy — green, yellow, red, neutral 🎨");
+    }
+
+    [Fact]
+    public void TeamsFormatter_ExceptionMessage_SplitsIntoTwoTextBlocks()
+    {
+        var formatter = new TeamsPayloadFormatter();
+        var options = new LittyWebhookOptions();
+        var message = "[💀 err] [2026-02-22T12:00:00.000Z] [MyApp] database is cooked\n```\nSystem.InvalidOperationException: bruh moment\n   at MyApp.DoStuff()\n```";
+
+        var payload = formatter.FormatPayload([message], options);
+        var doc = JsonDocument.Parse(payload);
+        var container = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body")[1]; // skip header
+
+        var items = container.GetProperty("items");
+        Assert.Equal(2, items.GetArrayLength());
+
+        // first TextBlock = log line (not subtle)
+        var logBlock = items[0];
+        Assert.Equal("TextBlock", logBlock.GetProperty("type").GetString());
+        Assert.Contains("database is cooked", logBlock.GetProperty("text").GetString());
+        Assert.False(logBlock.TryGetProperty("isSubtle", out _), "log line should not be subtle");
+
+        // second TextBlock = exception (subtle + monospace)
+        var exBlock = items[1];
+        Assert.Equal("TextBlock", exBlock.GetProperty("type").GetString());
+        Assert.Contains("bruh moment", exBlock.GetProperty("text").GetString());
+        Assert.True(exBlock.GetProperty("isSubtle").GetBoolean(), "exception block should be subtle");
+        Assert.Equal("monospace", exBlock.GetProperty("fontType").GetString());
+
+        _logger.LogInformation("exceptions split into subtle monospace — clean af 🧠");
+    }
+
+    [Fact]
+    public void TeamsFormatter_NoException_SingleTextBlock()
+    {
+        var formatter = new TeamsPayloadFormatter();
+        var options = new LittyWebhookOptions();
+        var message = "[😤 warning] [2026-02-22T12:00:00.000Z] [MyApp] something sus happened";
+
+        var payload = formatter.FormatPayload([message], options);
+        var doc = JsonDocument.Parse(payload);
+        var items = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body")[1]
+            .GetProperty("items");
+
+        Assert.Equal(1, items.GetArrayLength());
+        Assert.Equal("monospace", items[0].GetProperty("fontType").GetString());
+        Assert.True(items[0].GetProperty("wrap").GetBoolean());
+    }
+
+    [Fact]
+    public void TeamsFormatter_EmojisInMessages_SurviveSerialization()
+    {
+        var formatter = new TeamsPayloadFormatter();
+        var options = new LittyWebhookOptions();
+        var messages = new List<string> { "💀 big L — database is cooked fr fr 🔥 no cap ☠️ bestie 😤" };
+
+        var payload = formatter.FormatPayload(messages, options);
+
+        // parse the JSON and check the text property — emojis should survive round-trip 🔥
+        var doc = JsonDocument.Parse(payload);
+        var text = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body")[1] // skip header
+            .GetProperty("items")[0]
+            .GetProperty("text").GetString()!;
+
+        Assert.Contains("💀", text);
+        Assert.Contains("🔥", text);
+        Assert.Contains("☠️", text);
+        Assert.Contains("😤", text);
+
+        _logger.LogInformation("emojis surviving Teams JSON serialization like champs 🏆");
+    }
+
+    [Fact]
+    public void TeamsFormatter_AllTextBlocksAreMonospace()
+    {
+        var formatter = new TeamsPayloadFormatter();
+        var options = new LittyWebhookOptions();
+        var messages = new List<string>
+        {
+            "[🔥 info] clean message",
+            "[💀 err] bricked\n```\nException: oh no\n```"
+        };
+
+        var payload = formatter.FormatPayload(messages, options);
+        var doc = JsonDocument.Parse(payload);
+        var body = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body");
+
+        // check all TextBlocks inside containers (skip header at index 0)
+        for (var i = 1; i < body.GetArrayLength(); i++)
+        {
+            foreach (var item in body[i].GetProperty("items").EnumerateArray())
+            {
+                Assert.Equal("monospace", item.GetProperty("fontType").GetString());
+                Assert.Equal("small", item.GetProperty("size").GetString());
+            }
+        }
+
+        _logger.LogInformation("all text blocks monospace and small — consistent vibes 📝");
+    }
+
+    [Fact]
+    public void TeamsFormatter_ContainerStyle_IsValidAdaptiveCardStyle()
+    {
+        // validate that all severity styles are legit Adaptive Card ContainerStyle values
+        // schema says: "default" | "emphasis" | "good" | "attention" | "warning" | "accent" 🔒
+        var validStyles = new HashSet<string?> { "default", "emphasis", "good", "attention", "warning", "accent" };
+        var formatter = new TeamsPayloadFormatter();
+        var options = new LittyWebhookOptions();
+
+        var allLevels = new[]
+        {
+            "[👀 trace] lowkey", "[🔍 debug] investigating",
+            "[🔥 info] vibing", "[😤 warning] sus",
+            "[💀 err] cooked", "[☠️ crit] dead"
+        };
+
+        foreach (var msg in allLevels)
+        {
+            var payload = formatter.FormatPayload([msg], options);
+            var doc = JsonDocument.Parse(payload);
+            var style = doc.RootElement
+                .GetProperty("attachments")[0]
+                .GetProperty("content")
+                .GetProperty("body")[1]
+                .GetProperty("style").GetString();
+
+            Assert.Contains(style, validStyles);
+        }
+
+        _logger.LogInformation("all container styles valid per Adaptive Card schema 🔒");
+    }
+
+    [Fact]
+    public void TeamsFormatter_ContentUrlIsNull()
+    {
+        // Teams requires contentUrl in the attachment but it should be null for inline cards
+        var formatter = new TeamsPayloadFormatter();
+        var options = new LittyWebhookOptions();
+        var payload = formatter.FormatPayload(["test"], options);
+        var doc = JsonDocument.Parse(payload);
+        var attachment = doc.RootElement.GetProperty("attachments")[0];
+
+        Assert.Equal(JsonValueKind.Null, attachment.GetProperty("contentUrl").ValueKind);
     }
 
     // ===============================
@@ -768,6 +1056,153 @@ public class LittyWebhookTests
     }
 
     // ===============================
+    // PIPELINE RESILIENCE TESTS — no more hand-crafted string copouts 🔒
+    // these tests go through the REAL pipeline so label drift can never hide again
+    // ===============================
+
+    [Theory]
+    [InlineData(LogLevel.Trace,       "default")]
+    [InlineData(LogLevel.Debug,       "default")]
+    [InlineData(LogLevel.Information, "good")]
+    [InlineData(LogLevel.Warning,     "warning")]
+    [InlineData(LogLevel.Error,       "attention")]
+    [InlineData(LogLevel.Critical,    "attention")]
+    public void TeamsFormatter_SeverityLabels_MatchFormatHelperGetLevelInfo_NoCap(
+        LogLevel level, string expectedStyle)
+    {
+        // get the CANONICAL emoji+label from the single source of truth
+        var (emoji, label, _) = LittyLogsFormatHelper.GetLevelInfo(level);
+        var expectedBracket = $"[{emoji} {label}]";
+
+        // format through FormatLogLine — the REAL pipeline path, no hand-crafted strings allowed
+        var options = new LittyLogsOptions { UseColors = false };
+        var formatted = LittyLogsFormatHelper.FormatLogLine(
+            level, "TestCategory", "test message", null, options);
+
+        // sanity check: the formatted string contains the canonical bracket
+        Assert.Contains(expectedBracket, formatted);
+
+        // feed to Teams formatter and check severity style
+        var formatter = new TeamsPayloadFormatter();
+        var payload = formatter.FormatPayload([formatted], new LittyWebhookOptions());
+        var doc = JsonDocument.Parse(payload);
+        var style = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body")[1]
+            .GetProperty("style").GetString();
+
+        Assert.Equal(expectedStyle, style);
+        _logger.LogInformation("level {Level} bracket {Bracket} → style {Style} bussin 🔥",
+            level, expectedBracket, style);
+    }
+
+    [Fact]
+    public async Task Integration_TeamsLogger_AllLevels_CorrectContainerStyles_Sheesh()
+    {
+        var (logger, writer, capturedRequests) = CreateTeamsTestLogger(LogLevel.Trace);
+
+        logger.LogTrace("just peeking around bestie");
+        logger.LogDebug("investigating the vibes");
+        logger.LogInformation("we absolutely vibing");
+        logger.LogWarning("something kinda sus");
+        logger.LogError("big L detected");
+        logger.LogCritical("we are SO cooked");
+
+        await Task.Delay(300);
+        await writer.DisposeAsync();
+
+        Assert.True(capturedRequests.Count >= 1, "all 6 messages should have reached HTTP");
+
+        var payload = capturedRequests.First();
+        var doc = JsonDocument.Parse(payload);
+        var body = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body");
+
+        // body[0] = header, body[1..6] = message containers in order
+        Assert.Equal(7, body.GetArrayLength());
+
+        var expectedStyles = new[] { "default", "default", "good", "warning", "attention", "attention" };
+        for (var i = 0; i < expectedStyles.Length; i++)
+        {
+            var style = body[i + 1].GetProperty("style").GetString();
+            Assert.Equal(expectedStyles[i], style);
+        }
+
+        _logger.LogInformation("all 6 levels round-tripped with correct severity styles no cap 🔥");
+    }
+
+    [Fact]
+    public async Task Integration_TeamsLogger_ErrorWithException_AttentionStyleAndSplitBlocks()
+    {
+        var (logger, writer, capturedRequests) = CreateTeamsTestLogger(LogLevel.Warning);
+
+        try
+        {
+            throw new InvalidOperationException("database is cooked fr fr");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "something is mega bricked");
+        }
+
+        await Task.Delay(300);
+        await writer.DisposeAsync();
+
+        Assert.True(capturedRequests.Count >= 1, "error with exception should reach HTTP");
+
+        var payload = capturedRequests.First();
+        var doc = JsonDocument.Parse(payload);
+        var container = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body")[1]; // skip header
+
+        // severity style must be attention (red) — NOT default
+        Assert.Equal("attention", container.GetProperty("style").GetString());
+
+        // should have 2 TextBlocks: log line + exception
+        var items = container.GetProperty("items");
+        Assert.Equal(2, items.GetArrayLength());
+
+        // exception block should be subtle
+        Assert.True(items[1].GetProperty("isSubtle").GetBoolean());
+
+        _logger.LogInformation("error+exception round-trip: attention style + split blocks confirmed 💅");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TeamsFormatter_TimestampFirstMode_SeverityDetectionStillSlays(bool timestampFirst)
+    {
+        var littyOptions = new LittyLogsOptions
+        {
+            UseColors = false,
+            TimestampFirst = timestampFirst
+        };
+        var formatter = new TeamsPayloadFormatter();
+        var webhookOptions = new LittyWebhookOptions();
+
+        var formatted = LittyLogsFormatHelper.FormatLogLine(
+            LogLevel.Error, "TestCategory", "big L detected", null, littyOptions);
+
+        var payload = formatter.FormatPayload([formatted], webhookOptions);
+        var doc = JsonDocument.Parse(payload);
+        var style = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body")[1]
+            .GetProperty("style").GetString();
+
+        Assert.Equal("attention", style);
+        _logger.LogInformation("timestampFirst={TimestampFirst} still detects severity correctly 🔥",
+            timestampFirst);
+    }
+
+    // ===============================
     // HELPERS — mock HttpClient setup 🔧
     // ===============================
 
@@ -785,6 +1220,23 @@ public class LittyWebhookTests
         var littyOptions = options.ToLittyLogsOptions();
         var (mockFactory, capturedRequests) = CreateMockHttpClientFactory();
         var writer = new LittyWebhookWriter(mockFactory, new MatrixPayloadFormatter(), options);
+        var logger = new LittyWebhookLogger("TestCategory", writer, options, littyOptions);
+        return (logger, writer, capturedRequests);
+    }
+
+    private static (ILogger, LittyWebhookWriter, ConcurrentBag<string>) CreateTeamsTestLogger(
+        LogLevel minLevel = LogLevel.Warning)
+    {
+        var options = new LittyWebhookOptions
+        {
+            MinimumLevel = minLevel,
+            WebhookUrl = "http://localhost/test",
+            BatchInterval = TimeSpan.FromMilliseconds(100),
+            Platform = WebhookPlatform.Teams,
+        };
+        var littyOptions = options.ToLittyLogsOptions();
+        var (mockFactory, capturedRequests) = CreateMockHttpClientFactory();
+        var writer = new LittyWebhookWriter(mockFactory, new TeamsPayloadFormatter(), options);
         var logger = new LittyWebhookLogger("TestCategory", writer, options, littyOptions);
         return (logger, writer, capturedRequests);
     }

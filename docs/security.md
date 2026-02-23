@@ -39,7 +39,20 @@ litty-logs sends an `html` field in the webhook payload (hookshot prefers it ove
 
 the `text` field (markdown fallback for clients without HTML support) uses `\n\n` paragraph breaks between messages so they render as separate blocks per the CommonMark spec
 
-see: `Formatters/MatrixPayloadFormatter.cs` — `MessageToHtml()` method uses `WebUtility.HtmlEncode()`
+see: `Formatters/MatrixPayloadFormatter.cs` — `MessageToHtml()` method uses `HtmlEscape()`
+
+#### Teams Adaptive Cards — different security model 🟦
+
+Teams Adaptive Cards use a completely different rendering model. TextBlock elements render content as **plain text by default** — Teams does NOT interpret HTML or markdown inside TextBlock text properties. this means:
+
+- no XSS risk — `<script>alert('pwned')</script>` renders as literal text, not executable HTML
+- no tracking pixels — `![pixel](url)` renders as literal text, not an image
+- no phishing links — `[click here](url)` renders as literal text, not a clickable link
+- `Utf8JsonWriter` with `UnsafeRelaxedJsonEscaping` handles JSON serialization safely — emojis stay literal, dangerous chars get escaped by the JSON spec itself
+
+this is fundamentally different from Matrix hookshot (which renders HTML and needs explicit encoding). Teams' Adaptive Card schema handles the security for us no cap
+
+see: `Formatters/TeamsPayloadFormatter.cs` — messages go into TextBlock `text` property, rendered as plain text by Teams
 
 ### HTTP category filtering (infinite loop + URL exposure prevention) 🔒
 

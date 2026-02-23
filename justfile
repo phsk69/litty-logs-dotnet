@@ -1,36 +1,20 @@
 # litty-logs — the most bussin logging library no cap 🔥
 
-# build the whole solution
-build:
-    dotnet build
+# build the whole solution — litty-fied output no cap 🏗️🔥
+build *args:
+    dotnet run --project src/LittyLogs.Tool -- build {{args}}
 
-# run all the tests bestie (verbosity normal so litty output shows up)
-test:
-    dotnet test --verbosity normal
+# run all the tests — litty-fied output with detailed test results 🧪🔥
+test *args:
+    dotnet run --project src/LittyLogs.Tool -- test {{args}}
 
-# run tests through the litty tool for maximum bussin output
-litty-test:
-    dotnet run --project src/LittyLogs.Tool -- test
-
-# build through the litty tool for that gen alpha build output
-litty-build:
-    dotnet run --project src/LittyLogs.Tool -- build
-
-# publish through the litty tool for that gen alpha publish output
-litty-publish *args:
+# publish the solution — litty-fied output bestie 📤🔥
+publish *args:
     dotnet run --project src/LittyLogs.Tool -- publish {{args}}
 
-# pack through the litty tool for that gen alpha nupkg output 📦🔥
-litty-pack *args:
-    dotnet run --project src/LittyLogs.Tool -- pack {{args}}
-
-# pack all NuGet packages so the besties can install em (five packages now 📦)
-pack:
-    dotnet pack src/LittyLogs/LittyLogs.csproj -c Release
-    dotnet pack src/LittyLogs.Xunit/LittyLogs.Xunit.csproj -c Release
-    dotnet pack src/LittyLogs.Tool/LittyLogs.Tool.csproj -c Release
-    dotnet pack src/LittyLogs.File/LittyLogs.File.csproj -c Release
-    dotnet pack src/LittyLogs.Webhooks/LittyLogs.Webhooks.csproj -c Release
+# pack all NuGet packages — litty-fied output so the besties can install em 📦🔥
+pack *args:
+    dotnet run --project src/LittyLogs.Tool -- pack -c Release {{args}}
 
 # run an example — usage: just example web|hosted|console|xunit|json|filesink [extra args] 🔥
 # extra args pass through to the underlying command (e.g. just example web --json)
@@ -41,7 +25,7 @@ example name *args:
         web)      dotnet run --project examples/LittyLogs.Example.WebApi -- {{args}} ;;
         hosted)   dotnet run --project examples/LittyLogs.Example.HostedService -- {{args}} ;;
         console)  dotnet run --project examples/LittyLogs.Example.Console -- {{args}} ;;
-        xunit)    dotnet test examples/LittyLogs.Example.Xunit --verbosity normal {{args}} ;;
+        xunit)    dotnet run --project src/LittyLogs.Tool -- test examples/LittyLogs.Example.Xunit {{args}} ;;
         json)     dotnet run --project examples/LittyLogs.Example.Json -- {{args}} ;;
         filesink)  dotnet run --project examples/LittyLogs.Example.FileSink -- {{args}} ;;
         webhooks)  dotnet run --project examples/LittyLogs.Example.Webhooks -- {{args}} ;;
@@ -77,9 +61,9 @@ setup-completions:
         echo "restart your shell or run: source ${rc_file}"
     fi
 
-# yeet all build artifacts
-clean:
-    dotnet clean
+# yeet all build artifacts — litty-fied so you see what gets yeeted 🗑️🔥
+clean *args:
+    dotnet run --project src/LittyLogs.Tool -- clean {{args}}
 
 # bump the version bestie — usage: just bump major|minor|patch 🔥
 bump part:
@@ -303,6 +287,10 @@ re-release:
     if [ -f .env ]; then
         set -a; source .env; set +a
     fi
+    if [ -z "${FORGEJO_BASE_URL:-}" ]; then
+        echo "bruh set FORGEJO_BASE_URL in .env or env vars — need it to find your forgejo instance 💀"
+        exit 1
+    fi
     if [ -z "${FORGEJO_PAT:-}" ]; then
         echo "bruh set FORGEJO_PAT in .env or env vars — need it to nuke the forgejo release 💀"
         exit 1
@@ -327,7 +315,7 @@ re-release:
         || echo "  no github release to nuke (or already gone) 🤷"
     # 2. nuke forgejo release via API (we want fresh release notes from the updated changelog)
     echo "💀 nuking forgejo release..."
-    FORGEJO_URL="https://git.ssy.dk/api/v1"
+    FORGEJO_URL="${FORGEJO_BASE_URL}/api/v1"
     REPO="public/litty-logs-dotnet"
     RELEASE_ID=$(curl -s -H "Authorization: token ${FORGEJO_PAT}" \
         "${FORGEJO_URL}/repos/${REPO}/releases/tags/${tag}" | jq -r '.id // empty' 2>/dev/null)
@@ -372,7 +360,7 @@ nuget-push:
         exit 1
     fi
     echo "packing the goods 📦"
-    dotnet pack --configuration Release --output ./nupkgs
+    dotnet run --project src/LittyLogs.Tool -- pack --configuration Release --output ./nupkgs
     for pkg in ./nupkgs/*.nupkg; do
         echo "pushing ${pkg} to nuget.org no cap 📤"
         dotnet nuget push "$pkg" \

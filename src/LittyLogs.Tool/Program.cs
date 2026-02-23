@@ -17,6 +17,7 @@ return subcommand switch
     "build" => await RunBuild(remainingArgs),
     "publish" => await RunPublish(remainingArgs),
     "pack" => await RunPack(remainingArgs),
+    "clean" => await RunClean(remainingArgs),
     _ => HandleUnknown(subcommand),
 };
 
@@ -72,6 +73,26 @@ static async Task<int> RunPack(string[] extraArgs)
         line => PackOutputRewriter.TryRewrite(line) ?? line);
 }
 
+static async Task<int> RunClean(string[] extraArgs)
+{
+    PrintBanner("clean");
+
+    var arguments = new List<string> { "clean" };
+
+    // auto-inject normal verbosity so we can see the "Deleting file" lines
+    // more fun to watch the yeeting in real time bestie 🗑️
+    if (!extraArgs.Any(a => a.StartsWith("--verbosity", StringComparison.OrdinalIgnoreCase)
+                            || a.StartsWith("-v", StringComparison.OrdinalIgnoreCase)))
+    {
+        arguments.AddRange(["--verbosity", "normal"]);
+    }
+
+    arguments.AddRange(extraArgs);
+
+    return await DotnetProcessRunner.RunAsync(arguments,
+        line => CleanOutputRewriter.TryRewrite(line) ?? line);
+}
+
 static int HandleUnknown(string subcommand)
 {
     Console.WriteLine($"{Red}yo \"{subcommand}\" aint a valid subcommand bestie{Reset} 💀");
@@ -94,7 +115,9 @@ static void PrintUsage()
     Console.WriteLine($"  {Green}litty build{Reset}   [args...]  wraps dotnet build with litty-fied output 🏗️");
     Console.WriteLine($"  {Green}litty publish{Reset} [args...]  wraps dotnet publish with litty-fied output 📤");
     Console.WriteLine($"  {Green}litty pack{Reset}    [args...]  wraps dotnet pack with litty-fied output 📦");
+    Console.WriteLine($"  {Green}litty clean{Reset}   [args...]  wraps dotnet clean with litty-fied output 🗑️");
     Console.WriteLine();
     Console.WriteLine($"  all args pass through to the underlying dotnet command no cap");
     Console.WriteLine($"  {Dim}litty test auto-injects detailed logging so your test output shows up{Reset}");
+    Console.WriteLine($"  {Dim}litty clean auto-injects normal verbosity so you see what gets yeeted{Reset}");
 }
