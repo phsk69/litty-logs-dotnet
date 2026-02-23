@@ -11,7 +11,7 @@ namespace LittyLogs.Webhooks.Formatters;
 /// lowkey looks like a dashboard bestie 🟦🔥
 ///
 /// severity detection sniffs the emoji+level pattern from the formatted string
-/// (like [💀 error]) and maps it to Adaptive Card container styles.
+/// (like [💀 err]) and maps it to Adaptive Card container styles.
 /// exceptions get their own subtle monospace TextBlock no cap
 /// </summary>
 internal sealed class TeamsPayloadFormatter : IWebhookPayloadFormatter
@@ -136,7 +136,7 @@ internal sealed class TeamsPayloadFormatter : IWebhookPayloadFormatter
     {
         // check for emoji+level patterns anywhere in the string
         // these come from LittyLogsFormatHelper and are always in brackets
-        if (message.Contains("[☠️ critical]") || message.Contains("[💀 error]"))
+        if (message.Contains("[☠️ crit]") || message.Contains("[💀 err]"))
             return "attention"; // red — big L 💀
 
         if (message.Contains("[😤 warning]"))

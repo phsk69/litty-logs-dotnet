@@ -2,7 +2,7 @@ using LittyLogs;
 using Microsoft.Extensions.Logging;
 
 // meta logger for structural output — we eat our own dogfood bestie 🐕
-using var meta = LoggerFactory.Create(l => l.AddLittyLogs());
+using var meta = LoggerFactory.Create(l => l.AddLittyJsonLogs());
 var log = meta.CreateLogger("JsonExample");
 
 // === JSON logging — structured output for log aggregators to eat GOOD 🍽️ ===

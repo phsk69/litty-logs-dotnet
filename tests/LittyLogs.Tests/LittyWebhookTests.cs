@@ -137,7 +137,7 @@ public class LittyWebhookTests
     {
         var formatter = new TeamsPayloadFormatter();
         var options = new LittyWebhookOptions { Username = "CriticalAlerts" };
-        var messages = new List<string> { "[💀 error] something bricked" };
+        var messages = new List<string> { "[💀 err] something bricked" };
 
         var payload = formatter.FormatPayload(messages, options);
         var doc = JsonDocument.Parse(payload);
@@ -181,7 +181,7 @@ public class LittyWebhookTests
         {
             "[🔥 info] first message bestie",
             "[😤 warning] second one is sus",
-            "[💀 error] third one is cooked"
+            "[💀 err] third one is cooked"
         };
 
         var payload = formatter.FormatPayload(messages, options);
@@ -216,8 +216,8 @@ public class LittyWebhookTests
         {
             ("[🔥 info] we vibing", "good"),
             ("[😤 warning] something sus", "warning"),
-            ("[💀 error] big L detected", "attention"),
-            ("[☠️ critical] we are SO cooked", "attention"),
+            ("[💀 err] big L detected", "attention"),
+            ("[☠️ crit] we are SO cooked", "attention"),
             ("[👀 trace] peeking around", "default"),
             ("[🔍 debug] investigating", "default"),
         };
@@ -242,7 +242,7 @@ public class LittyWebhookTests
     {
         var formatter = new TeamsPayloadFormatter();
         var options = new LittyWebhookOptions();
-        var message = "[💀 error] [2026-02-22T12:00:00.000Z] [MyApp] database is cooked\n```\nSystem.InvalidOperationException: bruh moment\n   at MyApp.DoStuff()\n```";
+        var message = "[💀 err] [2026-02-22T12:00:00.000Z] [MyApp] database is cooked\n```\nSystem.InvalidOperationException: bruh moment\n   at MyApp.DoStuff()\n```";
 
         var payload = formatter.FormatPayload([message], options);
         var doc = JsonDocument.Parse(payload);
@@ -324,7 +324,7 @@ public class LittyWebhookTests
         var messages = new List<string>
         {
             "[🔥 info] clean message",
-            "[💀 error] bricked\n```\nException: oh no\n```"
+            "[💀 err] bricked\n```\nException: oh no\n```"
         };
 
         var payload = formatter.FormatPayload(messages, options);
@@ -360,7 +360,7 @@ public class LittyWebhookTests
         {
             "[👀 trace] lowkey", "[🔍 debug] investigating",
             "[🔥 info] vibing", "[😤 warning] sus",
-            "[💀 error] cooked", "[☠️ critical] dead"
+            "[💀 err] cooked", "[☠️ crit] dead"
         };
 
         foreach (var msg in allLevels)
@@ -1056,6 +1056,153 @@ public class LittyWebhookTests
     }
 
     // ===============================
+    // PIPELINE RESILIENCE TESTS — no more hand-crafted string copouts 🔒
+    // these tests go through the REAL pipeline so label drift can never hide again
+    // ===============================
+
+    [Theory]
+    [InlineData(LogLevel.Trace,       "default")]
+    [InlineData(LogLevel.Debug,       "default")]
+    [InlineData(LogLevel.Information, "good")]
+    [InlineData(LogLevel.Warning,     "warning")]
+    [InlineData(LogLevel.Error,       "attention")]
+    [InlineData(LogLevel.Critical,    "attention")]
+    public void TeamsFormatter_SeverityLabels_MatchFormatHelperGetLevelInfo_NoCap(
+        LogLevel level, string expectedStyle)
+    {
+        // get the CANONICAL emoji+label from the single source of truth
+        var (emoji, label, _) = LittyLogsFormatHelper.GetLevelInfo(level);
+        var expectedBracket = $"[{emoji} {label}]";
+
+        // format through FormatLogLine — the REAL pipeline path, no hand-crafted strings allowed
+        var options = new LittyLogsOptions { UseColors = false };
+        var formatted = LittyLogsFormatHelper.FormatLogLine(
+            level, "TestCategory", "test message", null, options);
+
+        // sanity check: the formatted string contains the canonical bracket
+        Assert.Contains(expectedBracket, formatted);
+
+        // feed to Teams formatter and check severity style
+        var formatter = new TeamsPayloadFormatter();
+        var payload = formatter.FormatPayload([formatted], new LittyWebhookOptions());
+        var doc = JsonDocument.Parse(payload);
+        var style = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body")[1]
+            .GetProperty("style").GetString();
+
+        Assert.Equal(expectedStyle, style);
+        _logger.LogInformation("level {Level} bracket {Bracket} → style {Style} bussin 🔥",
+            level, expectedBracket, style);
+    }
+
+    [Fact]
+    public async Task Integration_TeamsLogger_AllLevels_CorrectContainerStyles_Sheesh()
+    {
+        var (logger, writer, capturedRequests) = CreateTeamsTestLogger(LogLevel.Trace);
+
+        logger.LogTrace("just peeking around bestie");
+        logger.LogDebug("investigating the vibes");
+        logger.LogInformation("we absolutely vibing");
+        logger.LogWarning("something kinda sus");
+        logger.LogError("big L detected");
+        logger.LogCritical("we are SO cooked");
+
+        await Task.Delay(300);
+        await writer.DisposeAsync();
+
+        Assert.True(capturedRequests.Count >= 1, "all 6 messages should have reached HTTP");
+
+        var payload = capturedRequests.First();
+        var doc = JsonDocument.Parse(payload);
+        var body = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body");
+
+        // body[0] = header, body[1..6] = message containers in order
+        Assert.Equal(7, body.GetArrayLength());
+
+        var expectedStyles = new[] { "default", "default", "good", "warning", "attention", "attention" };
+        for (var i = 0; i < expectedStyles.Length; i++)
+        {
+            var style = body[i + 1].GetProperty("style").GetString();
+            Assert.Equal(expectedStyles[i], style);
+        }
+
+        _logger.LogInformation("all 6 levels round-tripped with correct severity styles no cap 🔥");
+    }
+
+    [Fact]
+    public async Task Integration_TeamsLogger_ErrorWithException_AttentionStyleAndSplitBlocks()
+    {
+        var (logger, writer, capturedRequests) = CreateTeamsTestLogger(LogLevel.Warning);
+
+        try
+        {
+            throw new InvalidOperationException("database is cooked fr fr");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "something is mega bricked");
+        }
+
+        await Task.Delay(300);
+        await writer.DisposeAsync();
+
+        Assert.True(capturedRequests.Count >= 1, "error with exception should reach HTTP");
+
+        var payload = capturedRequests.First();
+        var doc = JsonDocument.Parse(payload);
+        var container = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body")[1]; // skip header
+
+        // severity style must be attention (red) — NOT default
+        Assert.Equal("attention", container.GetProperty("style").GetString());
+
+        // should have 2 TextBlocks: log line + exception
+        var items = container.GetProperty("items");
+        Assert.Equal(2, items.GetArrayLength());
+
+        // exception block should be subtle
+        Assert.True(items[1].GetProperty("isSubtle").GetBoolean());
+
+        _logger.LogInformation("error+exception round-trip: attention style + split blocks confirmed 💅");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TeamsFormatter_TimestampFirstMode_SeverityDetectionStillSlays(bool timestampFirst)
+    {
+        var littyOptions = new LittyLogsOptions
+        {
+            UseColors = false,
+            TimestampFirst = timestampFirst
+        };
+        var formatter = new TeamsPayloadFormatter();
+        var webhookOptions = new LittyWebhookOptions();
+
+        var formatted = LittyLogsFormatHelper.FormatLogLine(
+            LogLevel.Error, "TestCategory", "big L detected", null, littyOptions);
+
+        var payload = formatter.FormatPayload([formatted], webhookOptions);
+        var doc = JsonDocument.Parse(payload);
+        var style = doc.RootElement
+            .GetProperty("attachments")[0]
+            .GetProperty("content")
+            .GetProperty("body")[1]
+            .GetProperty("style").GetString();
+
+        Assert.Equal("attention", style);
+        _logger.LogInformation("timestampFirst={TimestampFirst} still detects severity correctly 🔥",
+            timestampFirst);
+    }
+
+    // ===============================
     // HELPERS — mock HttpClient setup 🔧
     // ===============================
 
@@ -1073,6 +1220,23 @@ public class LittyWebhookTests
         var littyOptions = options.ToLittyLogsOptions();
         var (mockFactory, capturedRequests) = CreateMockHttpClientFactory();
         var writer = new LittyWebhookWriter(mockFactory, new MatrixPayloadFormatter(), options);
+        var logger = new LittyWebhookLogger("TestCategory", writer, options, littyOptions);
+        return (logger, writer, capturedRequests);
+    }
+
+    private static (ILogger, LittyWebhookWriter, ConcurrentBag<string>) CreateTeamsTestLogger(
+        LogLevel minLevel = LogLevel.Warning)
+    {
+        var options = new LittyWebhookOptions
+        {
+            MinimumLevel = minLevel,
+            WebhookUrl = "http://localhost/test",
+            BatchInterval = TimeSpan.FromMilliseconds(100),
+            Platform = WebhookPlatform.Teams,
+        };
+        var littyOptions = options.ToLittyLogsOptions();
+        var (mockFactory, capturedRequests) = CreateMockHttpClientFactory();
+        var writer = new LittyWebhookWriter(mockFactory, new TeamsPayloadFormatter(), options);
         var logger = new LittyWebhookLogger("TestCategory", writer, options, littyOptions);
         return (logger, writer, capturedRequests);
     }
