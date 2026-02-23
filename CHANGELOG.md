@@ -2,6 +2,55 @@
 
 all the glow ups and level ups for litty-logs no cap
 
+## [0.2.3] - 2026-02-23
+
+### the teams era + severity slay + litty clean drop 🟦🔥🗑️
+
+Teams Adaptive Cards are LIVE, severity colors actually work for all levels now (they were lowkey bricked before no cap 💀), `dotnet litty clean` just dropped, justfile got decluttered, and all docs got the glow up. 247 tests all passing. we cooked SO HARD this release bestie 🏆
+
+#### added — Teams Adaptive Cards webhook sink 🟦
+- `AddLittyTeamsLogs(url)` — one liner to yeet logs to Teams via Adaptive Cards
+- `AddLittyTeamsLogs(url, opts => ...)` — full control over MinimumLevel, batch config, username
+- `TeamsPayloadFormatter` — Adaptive Card v1.5 with severity-colored containers (green/yellow/red/neutral) 🎨
+- monospace TextBlocks for log lines, subtle blocks for exception stack traces
+- same Channel\<T\> batching + Polly resilience as Matrix — best-effort delivery, never crashes your app
+- TextBlock plain text rendering = inherently safe against XSS, tracking pixels, phishing links no cap 🔒
+
+#### added — `dotnet litty clean` CLI command 🗑️
+- wraps `dotnet clean` and rewrites boring output into gen alpha vibes
+- `"Deleting file"` → `"yeeted: filename 🗑️"` with just the filename, no full path noise
+- `CoreClean:` MSBuild noise gets suppressed
+- `"Build succeeded"` → `"all artifacts yeeted into the void bestie 🗑️🔥"`
+- auto-injects `--verbosity normal` so you actually see what gets yeeted
+- falls back to build rewriter for warnings, errors, timing etc
+
+#### fixed — Teams severity colors only worked for warning level 💀
+- `DetectSeverityStyle()` was checking for `[💀 error]` and `[☠️ critical]` but `GetLevelInfo()` returns labels `"err"` and `"crit"` — only warning matched because its the same in both places
+- tests passed because they used hand-crafted strings with the wrong labels 🤡
+- fixed detection to match `[💀 err]` and `[☠️ crit]` — all severity colors slay now
+- added pipeline resilience tests that derive from `GetLevelInfo()` so label drift can never hide again no cap 🔒
+
+#### changed — justfile declutter + litty tool everywhere 🧹
+- all main recipes (`build`, `test`, `pack`, `clean`) now use `dotnet litty` for that gen alpha output
+- yeeted redundant `litty-build`, `litty-test`, `litty-pack` prefixed recipes — the main ones ARE litty now
+- renamed `litty-publish` → `publish` for consistency
+- `example xunit` and `nuget-push` pack step also use litty tool
+
+#### changed — examples yeet Console.WriteLine 🐕
+- all example projects replaced `Console.WriteLine` with proper `ILogger` meta loggers
+- examples now eat their own dogfood — structured logging output even for the demo scaffolding
+
+#### changed — docs glow up 📜
+- **README** — Teams Adaptive Cards section, updated CLI tool description for clean command, recipes table matches reality, security summary updated
+- **security.md** — Teams Adaptive Card security model documented (TextBlock plain text rendering = inherently safe)
+- **TODO** — yeeted shipped sections because a todo is a todo bestie, not a victory lap
+
+#### changed — test count 🧪
+- 247 tests all passing (up from 216 in v0.2.2)
+- 4 new pipeline resilience tests that go through the REAL formatting pipeline — no more hand-crafted string copouts
+- 11 new `CleanOutputRewriter` tests covering all transforms + fallback
+- Teams test strings fixed from wrong labels to correct `[💀 err]` / `[☠️ crit]`
+
 ## [0.2.2] - 2026-02-22
 
 ### pipeline glow up — fully retryable release pipeline 🔄🔥
