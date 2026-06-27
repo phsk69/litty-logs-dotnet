@@ -2,6 +2,18 @@
 
 all the glow ups and level ups for litty-logs no cap
 
+## [0.2.4] - 2026-06-27
+
+### dep glow up — Resilience pinned + locked in 🔒🔥
+
+small but mighty maintenance drop bestie. bumped the HTTP resilience dep off the floating `10.0.*` range onto a pinned `10.7.0` so builds are reproducible and nobody gets surprise-patched mid-flight 💀. all 247 tests still slay, zero behavior change — webhook delivery stays just as bussin 🪝🔥
+
+#### changed — pin Microsoft.Extensions.Http.Resilience to 10.7.0 🔒
+- `LittyLogs.Webhooks` was floating on `10.0.*` which meant the resolved version could drift on every restore — not reproducible no cap
+- now pinned to `10.7.0` for deterministic builds across the squad
+- the Polly-backed retry/resilience pipeline for Matrix + Teams webhook delivery is unchanged — same best-effort, never-crash-your-app energy
+- 247 tests all passing, no regressions 🧪🔥
+
 ## [0.2.3] - 2026-02-23
 
 ### the teams era + severity slay + litty clean drop 🟦🔥🗑️

@@ -1,7 +1,7 @@
 <Project>
   <!-- the one true version bestie — bump this and the whole squad levels up 🔥 -->
   <PropertyGroup>
-    <Version>0.2.3</Version>
+    <Version>0.2.4</Version>
     <Authors>phsk69</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/phsk69/litty-logs-dotnet</RepositoryUrl>
