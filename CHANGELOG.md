@@ -27,6 +27,7 @@ the next conventional squash commit decides what cooks here bestie 🔍🔥
 - added one rolling `release-pr` branch that can be deleted after merge and recreated from `main` with zero history dependence 🔥
 - CI resolves the newest stable git-cliff `2.x` through a checksum-verifying action with fallback installs disabled, so fixes land without an invisible hard-pin fossil 🔒🔥
 - added immutable tag guards: same tag + same commit is retry-safe, while any attempt to move or reuse a version fails hard 🔒🔥
+- added pre-tag recovery so a CI repair can be folded into an already-prepared but still-untagged release exactly once 🔧🔒🔥
 - added manual `auto`, `patch`, `minor`, `major`, and prerelease promotion dispatch modes that only open a PR 🔥
 - added PR-title linting and release-policy graph fixtures, including a squash + deleted-source-branch regression 🧪🔥
 - added read-only `just release-next` and `just release-notes` previews that never install dependencies 🔍🔥
@@ -36,6 +37,7 @@ the next conventional squash commit decides what cooks here bestie 🔍🔥
 - Renovate keeps non-major updates auto-merged after green CI while major updates stay normal human-reviewed PRs 🤖🔥
 - dependency version changes are intentionally outside this release; Renovate owns the follow-up PRs so every bump gets its own CI signal 🤖🔒🔥
 - Forgejo docs now require squash-only protected `main`, auto-deleted source branches, protected `v*` tags, and a scoped `RELEASE_TOKEN` 🔒🔥
+- removed unsupported GitHub `permissions` blocks; Forgejo workflow auth now stays explicit, documented, and guarded by CI 🔒🔥
 - release shipping stays idempotent across NuGet, Forgejo, and the GitHub mirror, all rooted in the exact tagged `main` commit 🚀🔥
 
 ## [0.2.4] - 2026-06-27

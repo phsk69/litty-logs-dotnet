@@ -18,18 +18,20 @@ the `linux` runner image needs these already available:
 
 git-cliff is intentionally not preinstalled on the runner. `https://github.com/taiki-e/install-action@v2` resolves the newest stable `git-cliff@2` with its short dependency cooldown, verifies the upstream checksum, and exposes it only for that job. the fully qualified URL keeps Forgejo from rewriting the action to its default mirror, `fallback: none` forbids Cargo/binstall/source fallbacks, and an explicit version assertion rejects any accidental `3.x` jump. the action tag itself is visible to Renovate, so future action majors stay reviewable instead of fossilizing in shell strings 🔒🔥
 
+workflow syntax follows Forgejo's own [Actions reference](https://forgejo.org/docs/latest/user/actions/reference/), [GitHub Actions differences](https://forgejo.org/docs/latest/user/actions/github-actions/), and [runner troubleshooting guide](https://forgejo.org/docs/latest/user/actions/troubleshooting/). GitHub syntax is never assumed compatible: remote actions use explicit URLs, and `bash scripts/test-forgejo-workflows.sh` rejects keys Forgejo documents as ignored 🔍🔒🔥
+
 ## required secrets 🔐🔥
 
 Forgejo repo → Settings → Actions → Secrets needs:
 
 | secret | exact job 🔥 |
 |---|---|
-| `RELEASE_TOKEN` | real repo-scoped Forgejo PAT with repository contents + pull-request write access; checkout uses it so tag and `release-pr` pushes can trigger downstream workflows |
+| `RELEASE_TOKEN` | Forgejo PAT restricted to `public/litty-logs-dotnet` with only `write:repository`; checkout uses it so tag and `release-pr` pushes can trigger downstream workflows |
 | `NUGET_API_KEY` | nuget.org push key scoped to the `LittyLogs*` package glob; set expiry + rotation |
 | `GH_PAT` | fine-grained GitHub token scoped only to `phsk69/litty-logs-dotnet`, Contents read/write, used for mirror release API calls |
 | `GITHUB_TOKEN` | auto-provided by Forgejo Actions for Forgejo release creation and asset uploads |
 
-`RELEASE_TOKEN` cannot be swapped for the workflow’s automatic token: automation-authored pushes may be prevented from waking another workflow, which would leave a valid tag chilling without its ship job. least privilege still wins — keep every token pinned to this repo and only its stated job 🔒🔥
+`RELEASE_TOKEN` cannot be swapped for the workflow’s automatic token: Forgejo explicitly prevents automatic-token pushes from waking another workflow, which would leave a valid tag chilling without its ship job. least privilege still wins — keep every token pinned to this repo and only its stated job. Forgejo ignores GitHub-style `permissions` blocks, so none belong in these workflows; use an Authorized Integration when a future job needs native short-lived capabilities beyond this recursion-preserving release PAT 🔒🔥
 
 ## Forgejo repo settings 🌳🔒🔥
 
@@ -72,6 +74,7 @@ verify the runner is green under Forgejo repo → Settings → Actions → Runne
 - `feat!` is major; `feat` is minor; `fix`, `perf`, `revert`, and `chore(deps)` are patch; generic maintenance commits are skipped.
 - releasable work force-refreshes the single `release-pr` branch and opens or updates `chore(release): vX.Y.Z 🔥`.
 - merging that PR changes `Directory.Build.props`; the next run creates one annotated tag on that exact `main` commit.
+- if that first run fails before creating the tag, the next green `main` commit may recover the still-unused version when its changelog section exists and the last tagged baseline has a different version. the recovered tag lands on the fixed head, folding pre-tag repairs into the intended release instead of shipping known-broken automation 🔧🔥
 - an existing tag at that same commit is a retry-safe no-op. an existing tag anywhere else is a hard failure and is never moved or deleted.
 - manual dispatch can request `auto`, `patch`, `minor`, `major`, or `promote`; dispatch only makes a PR and never tags its starting commit.
 - while the one-off RC is current, automatic bumping pauses instead of inventing `rc.2`; `promote` is the explicit gate to stable and also includes any emergency conventional commits landed during the freeze 🔒🔥
@@ -92,12 +95,13 @@ retry the same workflow/tag whenever a destination flakes. do not create the sam
 
 the adoption PR carries stable `1.0.0` because the Slack and Matrix sinks have both passed live channel smoke tests before commit. dependency versions stay unchanged in this release; Renovate gets clean follow-up PRs with independent CI instead of hiding upgrades inside the breaking API release 🤖🔒🔥
 
-squash the adoption PR with the breaking title `feat(webhooks)!: ship Slack blocks and trunk releases 🔥`. the resulting `main` commit changes `Directory.Build.props` from `0.2.4` to `1.0.0`, so automation creates immutable `v1.0.0` there and the tag ships the stable NuGet packages directly 🚀🔥
+squash the adoption PR with the breaking title `feat(webhooks)!: ship Slack blocks and trunk releases 🔥`. the resulting `main` commit changes `Directory.Build.props` from `0.2.4` to `1.0.0`. if pre-tag automation needs a repair, merge that repair first; recovery then creates immutable `v1.0.0` on the fixed `main` head and ships the stable NuGet packages directly 🚀🔥
 
 ## troubleshooting without cursed tag surgery 🔧🔥
 
 - **no Release PR appears** — the squash type may be non-releasable; run `just release-next` with your managed git-cliff install to preview read-only.
-- **`RELEASE_TOKEN` missing or denied** — create a repo-scoped PAT with contents + PR write and update the Actions secret.
+- **`RELEASE_TOKEN` missing or denied** — create a PAT restricted to `public/litty-logs-dotnet` with only `write:repository`, then update the Actions secret.
+- **Forgejo warns about `permissions`** — remove the unsupported GitHub key; this repo's CI guard rejects it, and Forgejo Authorized Integrations are the native choice when a job needs extra short-lived capabilities.
 - **checksum verification fails** — stop. do not disable verification or enable a fallback; let install-action's manifest catch up to the upstream release.
 - **tag already points elsewhere** — do not delete or move it. choose the next unused version through a forced dispatch.
 - **tag matches but a publisher failed** — rerun `release.yml` for the same tag; NuGet and both release destinations reuse the version safely.
