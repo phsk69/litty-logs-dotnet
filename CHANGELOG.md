@@ -4,18 +4,13 @@ all the glow-ups and level-ups for litty-logs no cap 🔥
 
 ## [Unreleased]
 
-### breaking glow-ups — xUnit v3 🧪🔥
+## [2.0.0] - 2026-08-29
 
-- replaced deprecated xUnit v2 packages with xUnit v3 `4.0.0` across the library, tests, and example 🔥
-- moved the public `ITestOutputHelper` integration from `Xunit.Abstractions` to `Xunit`; consumers must remove `using Xunit.Abstractions` when upgrading 💥🔥
-- converted both test projects to the executable xUnit v3 project model and selected Microsoft Testing Platform v2 for `.NET 10` test runs 🧪🔥
-- taught `dotnet litty test` to use native MTP output flags while keeping the legacy VSTest logger fallback for repos still mid-migration 🛟🔥
 
-### security glow-ups — signed supply chain 🔏🔥
+### breaking glow-ups 💥🔥
 
-- enforced trusted SSH signatures for every post-rollout commit, release commit, and immutable release tag 🔒🔥
-- added a restricted repository-scoped release bot with an independent 1Password-backed signing key and PAT 🪪🔥
-- made the ship workflow verify its tag before any NuGet package can leave the runner 📦🔏🔥
+- Migrate to xUnit v3 🔥 (#11) 🔥
+
 
 ## [1.0.2] - 2026-08-29
 
