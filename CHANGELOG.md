@@ -4,7 +4,13 @@ all the glow-ups and level-ups for litty-logs no cap 🔥
 
 ## [Unreleased]
 
-the next conventional squash commit decides what cooks here bestie 🔍🔥
+## [1.0.1] - 2026-08-29
+
+
+### dependencies — fresh nuggies 🤖🔥
+
+- Update dotnet monorepo 🔥 🔥
+
 
 ## [1.0.0] - 2026-08-29
 
