@@ -32,7 +32,7 @@ dotnet add package LittyLogs.Xunit
 # for file sink with rotation and gzip compression (optional, separate package)
 dotnet add package LittyLogs.File
 
-# for webhook sink — yeet logs to Matrix, Teams, etc (optional, separate package)
+# for Slack + Matrix webhook sinks (optional, separate package) 🔥
 dotnet add package LittyLogs.Webhooks
 
 # for the CLI tool that litty-fies build, test, publish, pack, and clean output
@@ -152,7 +152,7 @@ features that go hard:
 - **startup safeguard** — never auto-rotates on startup, only rotates before writing the next entry 🔒
 - **no ANSI codes** — files never get terminal escape chars, thats cursed 💀
 
-### webhook sink — yeet logs to Matrix and Teams chat 🪝
+### webhook sink — yeet logs to Slack and Matrix chat 🪝🔥
 
 critical error hits? your group chat knows about it instantly, formatted all nice with emojis
 
@@ -160,18 +160,19 @@ critical error hits? your group chat knows about it instantly, formatted all nic
 using LittyLogs.Webhooks;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Logging.AddLittyMatrixLogs("https://hookshot.example.com/webhook/abc123"); // one liner bestie 🟣
+builder.Logging.AddLittyMatrixLogs("https://hookshot.example.com/webhook/abc123"); // Matrix one-liner 🟣🔥
+builder.Logging.AddLittySlackLogs("https://hooks.slack.com/services/your/secret/path"); // Slack one-liner 🟢🔥
 var app = builder.Build();
 app.Run();
 ```
 
 with full options:
 ```csharp
-builder.Logging.AddLittyMatrixLogs("https://hookshot.example.com/webhook/abc123", opts =>
+builder.Logging.AddLittySlackLogs("https://hooks.slack.com/services/your/secret/path", opts =>
 {
     opts.MinimumLevel = LogLevel.Warning;   // only Warning+ goes to chat (default)
-    opts.Username = "LittyLogs";            // bot display name in chat
-    opts.BatchSize = 10;                    // max messages per batch
+    opts.Username = "Deploy Alerts";        // Slack message header, not the app identity
+    opts.BatchSize = 10;                    // 49 max so header + logs stay under 50 blocks
     opts.BatchInterval = TimeSpan.FromSeconds(2); // flush interval
 });
 ```
@@ -182,31 +183,12 @@ features that go hard:
 - **best-effort** — if the webhook is bricked after retries, we drop the batch and keep vibing. never crashes your app no cap
 - **min level filtering** — default `Warning` so your chat dont get spammed with trace logs 💀
 - **IHttpClientFactory** — proper socket management, named client `"LittyWebhooks"` for custom config
-- **Matrix hookshot format** — markdown messages with emojis, exceptions in code blocks
+- **Matrix hookshot format** — HTML-escaped output plus a text fallback, with exceptions in code blocks 🟣🔥
+- **Slack Block Kit** — one plain-text header + one plain-text section per log, with `mrkdwn` disabled so mentions, links, and formatting stay literal 🟢🔒🔥
+- **Slack limits handled** — headers stop at 150 Unicode scalars, sections at 3000, and batches at 49 logs + one header 🔒🔥
+- **generic webhook config** — `AddLittyWebhookLogs()` still lets advanced besties select `WebhookPlatform.Matrix` or `WebhookPlatform.Slack` directly 🪝🔥
 
-#### Teams Adaptive Cards 🟦
-
-```csharp
-builder.Logging.AddLittyTeamsLogs("https://your-org.webhook.office.com/webhook/..."); // one liner bestie 🟦
-```
-
-with full options:
-```csharp
-builder.Logging.AddLittyTeamsLogs("https://your-org.webhook.office.com/webhook/...", opts =>
-{
-    opts.MinimumLevel = LogLevel.Warning;   // only Warning+ goes to chat (default)
-    opts.Username = "LittyLogs";            // shows in the card header
-    opts.BatchSize = 10;                    // max messages per batch
-    opts.BatchInterval = TimeSpan.FromSeconds(2); // flush interval
-});
-```
-
-Teams-specific features that go hard:
-- **Adaptive Card v1.5** — proper card format, not just plain text messages 💅
-- **severity-colored containers** — green (info), yellow (warning), red (error/critical), neutral (trace/debug) 🎨
-- **monospace TextBlocks** — log lines render in monospace for that dashboard energy
-- **exception blocks** — subtle monospace blocks underneath the log line, dont overpower the message
-- **same batching + resilience** — Channel\<T\> batching, Polly retry, circuit breaker, best-effort delivery
+setting up a test channel? follow the [Slack incoming webhook setup](docs/slack-webhook-setup.md) for the exact app settings, `.env` config, hermetic tests, and opt-in live smoke test 🟢🔥
 
 ## what gets litty-fied
 
@@ -322,11 +304,11 @@ seven example projects in `examples/` so you can see litty-logs in every scenari
 | `Xunit` | litty-fied xUnit test output with all log levels + TimestampFirst test | `just example xunit` |
 | `Json` | structured JSON logging with both timestamp configs | `just example json` |
 | `FileSink` | file sink with level-first → timestamp-first → JSON, reads em all back | `just example filesink` |
-| `Webhooks` | dual webhook sink (Matrix + Teams) with mock listeners or live endpoints | `just example webhooks` |
+| `Webhooks` | dual webhook sink (Matrix + Slack) with mock listeners or live endpoints | `just example webhooks` |
 
 every example auto-showcases ALL the modes when you run it — no hidden flags, no secret handshakes. you run it, you see everything 💅
 
-the webhooks example runs three demos: Matrix-only, Teams-only, and dual mode (both firing simultaneously). set `HOOKSHOT_URL` and/or `TEAMS_WEBHOOK_URL` in `.env` to go live — any sink without a URL falls back to a local mock listener so it always works bestie 🪝🔥
+the webhooks example runs three demos: Matrix-only, Slack-only, and dual mode. set `HOOKSHOT_URL` and/or `SLACK_WEBHOOK_URL` in `.env` to go live — any missing sink falls back to a local mock listener so the demo always eats. see the [Slack local setup guide](docs/slack-webhook-setup.md) before using a real webhook 🪝🔥
 
 ## development — for the contributing besties 🛠️
 
@@ -341,15 +323,8 @@ this project uses [just](https://just.systems) as the task runner. here are the 
 | `just publish` | publish with litty-fied output 📤🔥 |
 | `just pack` | pack all five NuGet packages with litty-fied output 📦🔥 |
 | `just clean` | yeet all build artifacts with litty-fied output 🗑️🔥 |
-| `just bump patch` | bump the patch version (also: `minor`, `major`) |
-| `just bump-pre dev.1` | slap a pre-release label on (e.g. `0.1.0-dev.1`) |
-| `just release patch` | full gitflow release — bump, branch, finish, push 🚀 |
-| `just release-current` | gitflow release without bumping (for first release etc.) |
-| `just re-release` | nuke old releases + tags everywhere, re-do the current version 🔄 |
-| `just release-dev patch` | dev/pre-release — bump + label + ship (e.g. `0.1.1-dev`) 🧪 |
-| `just hotfix patch` | start a gitflow hotfix branch off main 🚑 |
-| `just finish` | finish whatever gitflow branch youre on (hotfix/release/support) + push 🏁 |
-| `just nuget-push` | manually push packages to nuget.org |
+| `just release-next` | read-only git-cliff preview of the next strict SemVer; never installs anything 🔍🔥 |
+| `just release-notes` | read-only preview of the exact next changelog section 📜🔥 |
 | `just example <name>` | run an example — `web`, `hosted`, `console`, `xunit`, `json`, `filesink`, `webhooks` 🔥 |
 | `just setup-completions` | install shell tab-completions for `just example <tab>` |
 
@@ -368,50 +343,67 @@ source completions/just.bash  # bash
 
 ### versioning
 
-version lives in one place: `Directory.Build.props`. all five packages inherit from it. we use [gitflow](https://nvie.com/posts/a-successful-git-branching-model/) via the `git flow` CLI — `main` is production, `develop` is the integration branch, releases and hotfixes get their own branches 🔥
+version lives in one place: `Directory.Build.props`. all five packages inherit from it. `main` is the only long-lived branch; every feature, fix, chore, Renovate update, and rolling Release PR goes straight into it through a tiny squash PR 🌳🔥
 
-### release flow (gitflow)
-
-```bash
-# from develop — full gitflow ceremony (bump, branch, finish, push — all in one command)
-just release patch    # 0.1.0 → 0.1.1, pushes everything, pipeline goes brrr
-just release minor    # 0.1.0 → 0.2.0
-just release major    # 0.1.0 → 1.0.0
-
-# dev/pre-release for testing the pipeline
-just release-dev patch         # 0.1.0 → 0.1.1-dev
-just release-dev minor beta.1  # 0.1.0 → 0.2.0-beta.1
-
-# release the current version without bumping (e.g. first release)
-just release-current
-```
-
-all release commands auto-push develop + main + tag to origin when done. no manual `git push` needed fr fr 🔥
-
-### hotfix flow
+### trunk-based flow 🌳
 
 ```bash
-# from main — start a hotfix when something is bricked in prod
-just hotfix patch
+# start every change from fresh main
+git switch main
+git pull --ff-only origin main
+git switch -c feature/my-bussin-change
 
-# make your fix, commit it, then finish + push
-just finish
+# cook, run the just checks, push, and PR straight into main
+just build --configuration Release
+just test --configuration Release --no-build
+just pack --no-build --output ./nupkgs
 ```
 
-`just finish` auto-detects if youre on a hotfix, release, or support branch, does `git flow finish`, and pushes everything. one command to rule them all 🏁
+keep branches tiny and auto-delete them after merge. `main` stays green and always represents the next shippable state; release math reads tags + squash commits, so deleted source branches are fully irrelevant no cap 🔥
+
+### release flow 🚀
+
+every merged releasable squash wakes `release-pr.yml`. the newest checksum-verified stable git-cliff `2.x` reads commits since the latest immutable `v*` tag, updates the single `release-pr` branch, and opens or refreshes one `chore(release): vX.Y.Z 🔥` PR. merge that PR and automation tags that exact `main` commit once; `release.yml` then builds, tests, packs, and ships it 🔥
+
+strict SemVer rules are intentionally simple:
+
+- `feat(scope)!:` or any conventional breaking marker → major, even before 1.0 💥🔥
+- `feat:` → minor ✨🔥
+- `fix:`, `perf:`, `revert:`, and `chore(deps):` → patch 🐛🤖🔥
+- generic chores, docs, CI, tests, style, build, and refactors → no release noise 🔍🔥
+
+Forgejo manual dispatch supports `auto`, `patch`, `minor`, `major`, and `promote`. `promote` turns a prerelease like `1.0.0-rc.1` into `1.0.0` while copying its notes. manual dispatch only creates the PR; it never tags a side commit 🔒🔥
+
+if a future release uses an RC, automatic bumps pause while that prerelease is current instead of looping into `rc.2`; explicit `promote` is the stable gate and includes any emergency conventional commits that landed during the freeze 🔒🔥
+
+### urgent fix flow 🚑
+
+```bash
+# urgent fixes are still tiny trunk PRs — just move faster, not weirder
+git switch main
+git pull --ff-only origin main
+git switch -c fix/production-is-cooked
+
+# fix it, run the same checks, and PR into main
+# after merge, the rolling Release PR updates automatically
+```
+
+there is no special hotfix branch type and no merge-back. the fix lands on `main`, so the trunk and production history can never drift bestie 🌳🔥
 
 ### CI/CD — triple release pipeline 🚀
 
 forgejo actions on a self-hosted runner handles the whole squad:
 
-- **CI** (`ci.yml`) — builds, tests (with litty output 🔥), and packs on every push/PR to `develop` and `main`. if this fails your code is bricked and you should not merge no cap
+- **CI** (`ci.yml`) — validates the conventional squash title, release policy, build, tests, and packages on every PR to `main` 🔥
+- **Renovate** (`renovate.json5`) — keeps NuGet packages and Forgejo Actions fresh on `main`. non-major updates auto-merge after green CI; major updates stay regular PRs for human review no cap 🤖🔥
+- **Release PR** (`release-pr.yml`) — calculates strict SemVer with the newest stable git-cliff `2.x`, maintains one rolling PR, then creates one immutable tag after merge 🧠🔒🔥
 - **Release** (`release.yml`) — triggered by `v*` tags. the full pipeline hits THREE destinations:
   1. **nuget.org** — all five `.nupkg` files with `--skip-duplicate` so retries dont catch Ls
   2. **forgejo releases** — via Gitea API with `.nupkg` assets attached 🏠
   3. **github mirror releases** — via `gh` CLI with `.nupkg` assets on the [mirror repo](https://github.com/phsk69/litty-logs-dotnet/releases) 🐙
 
 pipeline features that go hard:
-- **fully retryable** — every step checks if work is already done before doing it again. re-run from the forgejo UI all day, zero errors 🔄
+- **fully retryable** — rerunning the same tag is safe; an existing tag at the same commit is a no-op, while moving or deleting a shipped tag is never part of the flow 🔄🔒🔥
 - **pre-release auto-detection** — versions with `-` (like `0.1.0-dev`, `1.0.0-beta.1`) auto-flag as pre-release on both platforms 🧪
 - **changelog extraction** — release notes auto-pulled from `CHANGELOG.md` for that professional rizz 📜
 - **version sanity check** — tag must match `Directory.Build.props` or the pipeline tells you its not it 💀
@@ -422,7 +414,6 @@ see [`docs/runner-setup.md`](docs/runner-setup.md) for runner setup and required
 
 stuff that would go absolutely crazy but aint started yet. vibes only rn no cap
 
-- 💬 **Slack webhook sink** — Block Kit formatter for the Slack besties
 - 🟣 **Matrix Client-Server API** — direct room messages for power users who want full HTML control instead of hookshot
 - 🎨 **custom webhook templates** — user-defined message format strings so you can make it look however you want
 - 🗜️ **zstd compression** — for file sink rotation (gzip is cool but zstd is faster and smaller fr fr)
@@ -436,7 +427,7 @@ litty-logs takes security seriously even though we dont take ourselves seriously
 
 - **webhook URL validation** — SSRF prevention, only `http`/`https` schemes allowed
 - **log injection prevention** — newlines in messages get sanitized to spaces in text output
-- **content injection prevention** — webhook messages get HTML-encoded (Matrix) or rendered as plain text (Teams Adaptive Cards), no tracking pixels or phishing links in your chat
+- **content injection prevention** — Matrix gets escaped HTML; Slack gets plain-text Block Kit with markdown disabled, so tracking pixels, surprise mentions, and phishing links stay literal 🔒🔥
 - **HTTP category filtering** — prevents infinite recursion AND accidental webhook URL token exposure
 
 full details in [`docs/security.md`](docs/security.md)

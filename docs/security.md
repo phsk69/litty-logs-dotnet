@@ -28,31 +28,34 @@ see: `LittyLogsFormatHelper.cs` — `FormatLogLine()` sanitizes the message befo
 
 ### content injection prevention (webhook sink) 🔒
 
-webhook messages get rendered by chat platforms (Matrix hookshot, Teams, etc). malicious log messages could embed:
+webhook messages get rendered by Matrix hookshot or Slack. malicious log messages could embed:
 
 - **XSS**: `<script>alert('pwned')</script>` — could execute JavaScript in web-based clients
 - **tracking pixels**: `![pixel](https://evil.com/track.png)` — renders as an invisible image, leaks IP addresses
 - **phishing links**: `[click here](https://evil.com/steal-creds)` — renders as a clickable link
 - **formatting spam**: `# HUGE TEXT` or `**bold spam**` — disrupts the chat channel
 
-litty-logs sends an `html` field in the webhook payload (hookshot prefers it over `text` for rendering). all message content is encoded via `System.Net.WebUtility.HtmlEncode()` — the standard .NET HTML encoding method that handles `<`, `>`, `&`, `"`, and `'`. this means ALL content renders as literal text, no executable HTML or markdown. exception stack traces get wrapped in `<pre><code>` blocks for proper monospace rendering
+litty-logs sends an `html` field in the webhook payload (hookshot prefers it over `text` for rendering). all message content goes through the tiny `HtmlEscape()` boundary that encodes `<`, `>`, `&`, `"`, and `'` while preserving literal UTF-8 emojis. content renders as text instead of executable HTML or markdown, and exception stack traces get wrapped in `<pre><code>` blocks for proper monospace energy 🔒🔥
 
 the `text` field (markdown fallback for clients without HTML support) uses `\n\n` paragraph breaks between messages so they render as separate blocks per the CommonMark spec
 
 see: `Formatters/MatrixPayloadFormatter.cs` — `MessageToHtml()` method uses `HtmlEscape()`
 
-#### Teams Adaptive Cards — different security model 🟦
+#### Slack Block Kit — plain text stays literal 🟢🔒🔥
 
-Teams Adaptive Cards use a completely different rendering model. TextBlock elements render content as **plain text by default** — Teams does NOT interpret HTML or markdown inside TextBlock text properties. this means:
+Slack payloads use a top-level fallback with `mrkdwn: false` plus Block Kit `plain_text` objects for both the header and every log section. user-shaped markup never becomes active formatting no cap:
 
 - no XSS risk — `<script>alert('pwned')</script>` renders as literal text, not executable HTML
 - no tracking pixels — `![pixel](url)` renders as literal text, not an image
 - no phishing links — `[click here](url)` renders as literal text, not a clickable link
-- `Utf8JsonWriter` with `UnsafeRelaxedJsonEscaping` handles JSON serialization safely — emojis stay literal, dangerous chars get escaped by the JSON spec itself
+- surprise mentions like `<!channel>` stay visible text instead of pinging the room
+- `Utf8JsonWriter` handles JSON serialization safely while emojis stay literal UTF-8 🔥
+- exact exception fences added by the shared logger are removed before plain-text delivery, while the multiline exception content survives
+- Unicode-scalar truncation respects Slack's 150-character header, 3000-character section, and 50-block message limits 🔒
 
-this is fundamentally different from Matrix hookshot (which renders HTML and needs explicit encoding). Teams' Adaptive Card schema handles the security for us no cap
+the incoming webhook URL is the Slack credential. keep it in secret storage, never commit it, and remember `Username` only labels the message header — Slack controls the installed app identity. use the [Slack incoming webhook setup](slack-webhook-setup.md) for a safe local test-channel flow 🔒🔥
 
-see: `Formatters/TeamsPayloadFormatter.cs` — messages go into TextBlock `text` property, rendered as plain text by Teams
+see: `Formatters/SlackPayloadFormatter.cs` — safe plain-text Block Kit without a Slack SDK dependency 🔥
 
 ### HTTP category filtering (infinite loop + URL exposure prevention) 🔒
 

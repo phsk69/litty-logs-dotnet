@@ -37,31 +37,31 @@ public static class LittyWebhookExtensions
         return builder.AddLittyWebhookLogs(opts =>
         {
             opts.WebhookUrl = webhookUrl;
-            opts.Platform = WebhookPlatform.Matrix;
             configure(opts);
+            opts.Platform = WebhookPlatform.Matrix;
         });
     }
 
     /// <summary>
-    /// yeets litty-fied logs to a Teams webhook as Adaptive Cards. one liner bestie 🟦🔥
+    /// yeets litty-fied logs to a Slack incoming webhook as safe plain-text blocks. one liner bestie 🟢🔥
     /// default MinimumLevel is Warning so your chat dont get spammed no cap
     /// </summary>
-    public static ILoggingBuilder AddLittyTeamsLogs(
+    public static ILoggingBuilder AddLittySlackLogs(
         this ILoggingBuilder builder,
         string webhookUrl)
     {
         return builder.AddLittyWebhookLogs(opts =>
         {
             opts.WebhookUrl = webhookUrl;
-            opts.Platform = WebhookPlatform.Teams;
+            opts.Platform = WebhookPlatform.Slack;
         });
     }
 
     /// <summary>
-    /// yeets litty-fied logs to a Teams webhook as Adaptive Cards with full options control 🟦✨
-    /// severity-colored containers make your Teams chat lowkey look like a dashboard bestie 💅
+    /// yeets litty-fied logs to a Slack incoming webhook with full options control 🟢✨
+    /// Username becomes the message header; Slack still owns the app identity no cap 🔒🔥
     /// </summary>
-    public static ILoggingBuilder AddLittyTeamsLogs(
+    public static ILoggingBuilder AddLittySlackLogs(
         this ILoggingBuilder builder,
         string webhookUrl,
         Action<LittyWebhookOptions> configure)
@@ -69,8 +69,8 @@ public static class LittyWebhookExtensions
         return builder.AddLittyWebhookLogs(opts =>
         {
             opts.WebhookUrl = webhookUrl;
-            opts.Platform = WebhookPlatform.Teams;
             configure(opts);
+            opts.Platform = WebhookPlatform.Slack;
         });
     }
 
@@ -101,6 +101,16 @@ public static class LittyWebhookExtensions
                 $"WebhookUrl scheme '{uri.Scheme}' is not it — only http/https allowed bestie 🔒",
                 nameof(options));
 
+        if (options.BatchSize <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                "bruh BatchSize has to be at least 1 or the logs got nowhere to go 💀🔥");
+
+        if (options.Platform == WebhookPlatform.Slack && options.BatchSize > 49)
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                "Slack batches max out at 49 logs so the header still fits the 50-block cap bestie 💀🔥");
+
         // register named HttpClient with standard resilience handler (Polly) —
         // retry with exponential backoff, circuit breaker, per-request timeout
         // all handled by Microsoft.Extensions.Http.Resilience no cap 🔒
@@ -115,7 +125,7 @@ public static class LittyWebhookExtensions
             IWebhookPayloadFormatter formatter = options.Platform switch
             {
                 WebhookPlatform.Matrix => new MatrixPayloadFormatter(),
-                WebhookPlatform.Teams => new TeamsPayloadFormatter(),
+                WebhookPlatform.Slack => new SlackPayloadFormatter(),
                 _ => throw new ArgumentException($"bruh {options.Platform} aint a supported platform yet 💀")
             };
             var writer = new LittyWebhookWriter(httpFactory, formatter, options);

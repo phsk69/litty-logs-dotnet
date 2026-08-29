@@ -6,6 +6,10 @@ on:
     tags:
       - 'v*'
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: linux
@@ -15,11 +19,27 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: make sure the tag grew from the main trunk 🌳🔒
+        run: |
+          git fetch --no-tags origin main
+          main_commit=$(git rev-parse FETCH_HEAD)
+          tag_commit=$(git rev-list -n 1 "${GITHUB_REF_NAME}")
+          if ! git merge-base --is-ancestor "$tag_commit" "$main_commit"; then
+            echo "bruh ${GITHUB_REF_NAME} is not on main — rogue tags do not ship nuggies 💀"
+            exit 1
+          fi
+          echo "${GITHUB_REF_NAME} is rooted in main, trunk vibes confirmed 🌳🔥"
+
       - name: figure out the version from the tag 🏷️
         id: version
         run: |
           # strip the v prefix from the tag — v1.2.3 -> 1.2.3
           VERSION="${GITHUB_REF_NAME#v}"
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?$'
+          if [[ ! "$VERSION" =~ $semver ]]; then
+            echo "bruh ${GITHUB_REF_NAME} is not strict SemVer, no nuggies for rogue tags 💀🔥"
+            exit 1
+          fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           # auto-detect pre-release — if version has a dash its not the final form 🚨

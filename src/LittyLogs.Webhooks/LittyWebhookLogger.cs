@@ -37,11 +37,10 @@ internal sealed class LittyWebhookLogger(
 
         // format using the shared brain — no colors because webhooks dont do ANSI
         var formatted = LittyLogsFormatHelper.FormatLogLine(
-            logLevel, categoryName, message, exception, littyOptions);
+            logLevel, categoryName, message, null, littyOptions);
 
-        // if theres an exception, wrap it in a markdown code block so it renders nice in chat
-        // security: WebUtility.HtmlEncode() in the formatter handles injection for the html field
-        // hookshot prefers html when present — no custom sanitizer needed 🔒
+        // Matrix turns our exact fence into escaped pre/code HTML; Slack removes only the fence 🔥
+        // and keeps the multiline exception as safe plain text. one stack trace, zero dupes 🔒🔥
         if (exception is not null)
         {
             formatted += $"\n```\n{exception}\n```";

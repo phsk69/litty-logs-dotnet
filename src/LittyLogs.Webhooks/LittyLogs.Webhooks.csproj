@@ -8,8 +8,8 @@
     <!-- NuGet package metadata so the webhook besties can yeet logs to chat 🪝 -->
     <IsPackable>true</IsPackable>
     <PackageId>LittyLogs.Webhooks</PackageId>
-    <Description>webhook sink for litty-logs. yeets litty-fied logs straight to Matrix chat rooms via hookshot webhooks. your critical errors land in the group chat formatted all nice instead of rotting in a log file no cap 🔥</Description>
-    <PackageTags>logging;webhook;matrix;hookshot;teams;emoji;gen-alpha;litty;notifications</PackageTags>
+    <Description>webhook sink for litty-logs. yeets litty-fied logs to Slack incoming webhooks and Matrix hookshot rooms with safe payloads and maximum rizz no cap 🔥</Description>
+    <PackageTags>logging;webhook;slack;matrix;hookshot;block-kit;emoji;gen-alpha;litty;notifications</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

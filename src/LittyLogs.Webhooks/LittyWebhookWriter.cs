@@ -65,13 +65,16 @@ internal sealed class LittyWebhookWriter : IAsyncDisposable, IDisposable
                 if (!await _channel.Reader.WaitToReadAsync(ct))
                     break; // channel completed, we out
 
-                // drain up to BatchSize messages, or until BatchInterval expires
+                // Slack gets 50 blocks total, so one header + 49 logs is the hard ceiling 🔒🔥
+                var batchSize = GetSafeBatchSize();
+
+                // drain up to the safe batch size, or until BatchInterval expires
                 using var batchCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 batchCts.CancelAfter(_options.BatchInterval);
 
                 try
                 {
-                    while (batch.Count < _options.BatchSize)
+                    while (batch.Count < batchSize)
                     {
                         if (_channel.Reader.TryRead(out var msg))
                         {
@@ -104,9 +107,15 @@ internal sealed class LittyWebhookWriter : IAsyncDisposable, IDisposable
         {
             // drain any remaining items and flush one last batch before shutting down
             var finalBatch = new List<string>();
+            var finalBatchSize = GetSafeBatchSize();
             while (_channel.Reader.TryRead(out var remaining))
             {
                 finalBatch.Add(remaining.FormattedText);
+                if (finalBatch.Count == finalBatchSize)
+                {
+                    await FlushBatchAsync(finalBatch);
+                    finalBatch.Clear();
+                }
             }
 
             if (finalBatch.Count > 0)
@@ -115,6 +124,10 @@ internal sealed class LittyWebhookWriter : IAsyncDisposable, IDisposable
             }
         }
     }
+
+    private int GetSafeBatchSize() => _options.Platform == WebhookPlatform.Slack
+        ? Math.Clamp(_options.BatchSize, 1, 49)
+        : Math.Max(_options.BatchSize, 1);
 
     private async Task FlushBatchAsync(List<string> batch)
     {

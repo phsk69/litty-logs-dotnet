@@ -1,0 +1,33 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "Europe/Copenhagen",
+  "baseBranchPatterns": ["main"],
+  "dependencyDashboard": true,
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "commitMessageSuffix": " 🔥",
+  "automerge": true,
+  "automergeType": "pr",
+  "platformAutomerge": false,
+  "ignoreTests": false,
+  "nuget": {
+    "ignorePaths": [
+      "**/node_modules/**",
+      "**/bower_components/**",
+      "**/vendor/**",
+      "**/__fixtures__/**"
+    ],
+    "rangeStrategy": "bump"
+  },
+  "packageRules": [
+    {
+      "description": "Major updates need a human bestie before they land",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ]
+}

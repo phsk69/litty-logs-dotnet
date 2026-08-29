@@ -8,6 +8,6 @@ public enum WebhookPlatform
     /// <summary>Matrix hookshot webhook — markdown formatting, simple POST, auth is in the URL 🟣</summary>
     Matrix,
 
-    /// <summary>Teams Adaptive Cards — colored containers per severity (coming soon bestie) 🟦</summary>
-    Teams
+    /// <summary>Slack incoming webhook — safe plain-text Block Kit with zero markdown jump scares 🟢🔥</summary>
+    Slack
 }

@@ -20,10 +20,10 @@ public class LittyWebhookOptions
     /// </summary>
     public LogLevel MinimumLevel { get; set; } = LogLevel.Warning;
 
-    /// <summary>bot display name in chat. "LittyLogs" by default because thats fire 🤖</summary>
+    /// <summary>message label in chat. Slack uses this as the header, not the app identity bestie 🤖🔥</summary>
     public string Username { get; set; } = "LittyLogs";
 
-    /// <summary>max messages per batch before we flush. 10 by default no cap 📦</summary>
+    /// <summary>max messages per batch before we flush. Slack allows up to 49 plus the header no cap 📦🔥</summary>
     public int BatchSize { get; set; } = 10;
 
     /// <summary>max time to wait before flushing a partial batch. 2s by default ⏱️</summary>

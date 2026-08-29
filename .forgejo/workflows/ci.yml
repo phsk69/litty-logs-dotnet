@@ -3,11 +3,54 @@ name: ci
 
 on:
   push:
-    branches: [develop, main]
+    branches: [main]
   pull_request:
-    branches: [develop, main]
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
 
 jobs:
+  commitlint:
+    if: github.event_name == 'pull_request'
+    runs-on: linux
+    steps:
+      - name: check the squash title drives SemVer cleanly 🧠🔥
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|perf|revert|chore|docs|ci|test|style|build|refactor)(\([a-zA-Z0-9._/-]+\))?(!)?: .+ 🔥$'
+          if [[ ! "$PR_TITLE" =~ $pattern ]]; then
+            echo "bruh PR title '${PR_TITLE}' is not conventional + 🔥, so release math cannot cook safely 💀🔥"
+            echo "use vibes like feat(webhooks)!: ship the glow-up 🔥 or fix: eliminate the L 🔥"
+            exit 1
+          fi
+          echo "PR title is SemVer-readable and fully fire 🔥"
+
+  release-policy:
+    runs-on: linux
+    steps:
+      - name: yoink the release policy fixtures 📥🔥
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: grab the newest checksum-verified git-cliff 2.x 🧗🔥
+        uses: https://github.com/taiki-e/install-action@v2
+        with:
+          tool: git-cliff@2
+          checksum: true
+          fallback: none
+
+      - name: prove the tool stayed on major 2 + verify strict SemVer 🧠🔥
+        run: |
+          set -euo pipefail
+          cliff_version=$(git-cliff --version)
+          if [[ ! "$cliff_version" =~ ^git-cliff[[:space:]]+2\. ]]; then
+            echo "bruh install-action resolved '${cliff_version}', expected the newest stable 2.x 💀🔥"
+            exit 1
+          fi
+          echo "${cliff_version} is the current major-2 release brain 🧠🔥"
+          CLIFF="$(command -v git-cliff)" bash scripts/test-release-policy.sh
+
   build-and-test:
     runs-on: linux
     steps:

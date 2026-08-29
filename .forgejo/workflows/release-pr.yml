@@ -1,0 +1,260 @@
+# rolling release PR brain — one branch, immutable tags, zero branch archaeology 🧠🔥
+name: release-pr
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: forced SemVer move when auto is not the vibe 🔥
+        required: true
+        default: auto
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+          - promote
+
+concurrency:
+  group: release-pr
+  cancel-in-progress: false
+
+jobs:
+  roll-release-pr:
+    runs-on: linux
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: make sure the release PAT is real rizz 🔒🔥
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_TOKEN" ]; then
+            echo "bruh RELEASE_TOKEN is missing — action-token pushes cannot wake the downstream release reliably 💀🔥"
+            exit 1
+          fi
+
+      - name: yoink the whole graph with the release PAT 📥🔥
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: grab the newest checksum-verified git-cliff 2.x 🧗🔥
+        uses: https://github.com/taiki-e/install-action@v2
+        with:
+          tool: git-cliff@2
+          checksum: true
+          fallback: none
+
+      - name: prove the release brain stayed on major 2 🧠🔒🔥
+        run: |
+          set -euo pipefail
+          cliff_version=$(git-cliff --version)
+          if [[ ! "$cliff_version" =~ ^git-cliff[[:space:]]+2\. ]]; then
+            echo "bruh install-action resolved '${cliff_version}', expected the newest stable 2.x 💀🔥"
+            exit 1
+          fi
+          echo "${cliff_version} is the current major-2 release brain 🧠🔥"
+
+      - name: calculate the next move or tag the merged release commit 🧠🔥
+        id: release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_BUMP: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          git fetch --force origin main:refs/remotes/origin/main
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$GITHUB_SHA" != "$(git rev-parse origin/main)" ]; then
+            echo "bruh manual release math must start at the current main tip, side-ref dispatch is not the vibe 💀🔥"
+            exit 1
+          fi
+          current=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?$'
+          if [[ ! "$current" =~ $semver ]]; then
+            echo "bruh Directory.Build.props has non-SemVer '${current}', release math refuses that L 💀🔥"
+            exit 1
+          fi
+
+          # A merged Release PR changes the version. That exact main commit gets one immutable tag 🔒🔥
+          if [ "$EVENT_NAME" = "push" ] && git rev-parse HEAD^ >/dev/null 2>&1; then
+            parent=$(git show HEAD^:Directory.Build.props 2>/dev/null | grep -oP '(?<=<Version>)[^<]+' || true)
+            if [ -n "$parent" ] && [ "$parent" != "$current" ]; then
+              tag="v${current}"
+              if ! grep -qF "## [${current}]" CHANGELOG.md; then
+                echo "bruh CHANGELOG.md has no ${current} section, tag stays locked down 💀🔥"
+                exit 1
+              fi
+
+              existing=$(git rev-list -n 1 "refs/tags/${tag}" 2>/dev/null || true)
+              if [ -n "$existing" ] && [ "$existing" != "$GITHUB_SHA" ]; then
+                echo "bruh ${tag} already points at ${existing}; immutable tags never get deleted or moved 💀🔥"
+                exit 1
+              fi
+              if [ -z "$existing" ]; then
+                git config user.name "litty release bot 🔥"
+                git config user.email "release-bot@users.noreply.local"
+                git tag --annotate "$tag" --message "${tag} dropped from main no cap 🔥"
+                git push origin "refs/tags/${tag}"
+                echo "${tag} now points at the merged main commit and the ship pipeline is awake 🚀🔥"
+              else
+                echo "${tag} already points at this exact commit — retry is a clean no-op 🔄🔥"
+              fi
+              echo "outcome=tagged" >> "$GITHUB_OUTPUT"
+              echo "current=${current}" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          bump="${REQUESTED_BUMP:-auto}"
+          next=""
+          if [ "$bump" = "auto" ]; then
+            if [[ "$current" == *-* ]]; then
+              echo "RC freeze is active at ${current}; dispatch promote when stable is verified, no rc.2 loop gets spawned 🔒🔥"
+              echo "outcome=none" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            next_raw=$(git-cliff --config cliff.toml --bumped-version --unreleased)
+            next="${next_raw#v}"
+          elif [ "$bump" = "promote" ]; then
+            if [[ "$current" != *-* ]]; then
+              echo "bruh promote only works from a prerelease like 1.0.0-rc.1 💀🔥"
+              exit 1
+            fi
+            next="${current%%-*}"
+          else
+            base="${current%%-*}"
+            IFS='.' read -r major minor patch <<< "$base"
+            case "$bump" in
+              patch) next="${major}.${minor}.$((patch + 1))" ;;
+              minor) next="${major}.$((minor + 1)).0" ;;
+              major) next="$((major + 1)).0.0" ;;
+              *) echo "bruh bump '${bump}' is not auto, patch, minor, major, or promote 💀🔥"; exit 1 ;;
+            esac
+          fi
+
+          if [ -z "$next" ] || [ "$next" = "$current" ]; then
+            echo "no releasable commits are cooking, so no empty PR gets spawned 🔍🔥"
+            echo "outcome=none" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ ! "$next" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "bruh calculated version '${next}' is not stable strict SemVer 💀🔥"
+            exit 1
+          fi
+          if git rev-parse "refs/tags/v${next}" >/dev/null 2>&1; then
+            echo "bruh v${next} already exists — versions only move forward and tags stay immutable 💀🔥"
+            exit 1
+          fi
+
+          echo "outcome=pr" >> "$GITHUB_OUTPUT"
+          echo "current=${current}" >> "$GITHUB_OUTPUT"
+          echo "next=${next}" >> "$GITHUB_OUTPUT"
+          echo "bump=${bump}" >> "$GITHUB_OUTPUT"
+          echo "${current} -> ${next} is the next release vibe 🔥"
+
+      - name: cook the version and changelog on release-pr 📜🔥
+        if: steps.release.outputs.outcome == 'pr'
+        env:
+          CURRENT: ${{ steps.release.outputs.current }}
+          NEXT: ${{ steps.release.outputs.next }}
+          BUMP: ${{ steps.release.outputs.bump }}
+        run: |
+          set -euo pipefail
+          notes="${RUNNER_TEMP:-/tmp}/litty-release-notes.md"
+          next_changelog="${RUNNER_TEMP:-/tmp}/litty-changelog.md"
+
+          if [ "$BUMP" = "promote" ]; then
+            echo "## [${NEXT}] - $(date -u +%Y-%m-%d)" > "$notes"
+            awk -v version="$CURRENT" '
+              $0 == "## [" version "]" || index($0, "## [" version "] - ") == 1 { found=1; next }
+              found && /^## \[/ { exit }
+              found { print }
+            ' CHANGELOG.md >> "$notes"
+            extra_notes="${RUNNER_TEMP:-/tmp}/litty-promotion-extra.md"
+            git-cliff --config cliff.toml --unreleased --tag "v${NEXT}" --strip all > "$extra_notes"
+            awk '/^### / { found=1 } found { print }' "$extra_notes" >> "$notes"
+            if ! grep -q '^- ' "$notes"; then
+              echo "" >> "$notes"
+              echo "- promoted ${CURRENT} to the stable ${NEXT} glow-up no cap 🔥" >> "$notes"
+            fi
+          else
+            git-cliff --config cliff.toml --unreleased --tag "v${NEXT}" --strip all > "$notes"
+            if ! grep -q '^- ' "$notes"; then
+              echo "" >> "$notes"
+              echo "### changed — manual release override 🎛️🔥" >> "$notes"
+              echo "" >> "$notes"
+              echo "- forced a ${BUMP} SemVer move for maintenance vibes no cap 🔥" >> "$notes"
+            fi
+          fi
+
+          sed -i "s|<Version>${CURRENT}</Version>|<Version>${NEXT}</Version>|" Directory.Build.props
+          awk -v notes_file="$notes" '
+            BEGIN {
+              while ((getline line < notes_file) > 0) rendered = rendered line ORS
+              close(notes_file)
+            }
+            /^## \[Unreleased\]/ {
+              print
+              print ""
+              printf "%s", rendered
+              print ""
+              skipping=1
+              next
+            }
+            skipping && /^## \[/ { skipping=0 }
+            !skipping { print }
+          ' CHANGELOG.md > "$next_changelog"
+          mv "$next_changelog" CHANGELOG.md
+
+          git config user.name "litty release bot 🔥"
+          git config user.email "release-bot@users.noreply.local"
+          git fetch origin refs/heads/release-pr:refs/remotes/origin/release-pr || true
+          git checkout -B release-pr "$GITHUB_SHA"
+          git add Directory.Build.props CHANGELOG.md
+          git commit -m "chore(release): v${NEXT} 🔥"
+          git push --force-with-lease origin release-pr
+
+      - name: open or refresh the one rolling Release PR 🤖🔥
+        if: steps.release.outputs.outcome == 'pr'
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          NEXT: ${{ steps.release.outputs.next }}
+        run: |
+          set -euo pipefail
+          api="${FORGEJO_API_URL:-${GITHUB_SERVER_URL}/api/v1}"
+          title="chore(release): v${NEXT} 🔥"
+          body="git-cliff calculated v${NEXT} from unreleased conventional commits. Squash this into main and the exact merge commit gets one immutable tag; the release workflow then builds, tests, packs, and ships every NuGet nuggie no cap 🔥"
+          open_prs="${RUNNER_TEMP:-/tmp}/litty-open-prs.json"
+          payload="${RUNNER_TEMP:-/tmp}/litty-release-pr.json"
+
+          curl --fail --silent --show-error \
+            -H "Authorization: token ${RELEASE_TOKEN}" \
+            "${api}/repos/${GITHUB_REPOSITORY}/pulls?state=open&limit=50" \
+            --output "$open_prs"
+          number=$(jq -r '.[] | select(.head.ref == "release-pr" and .base.ref == "main") | .number' "$open_prs" | head -n 1)
+
+          if [ -n "$number" ]; then
+            jq -n --arg title "$title" --arg body "$body" \
+              '{title: $title, body: $body}' > "$payload"
+            curl --fail --silent --show-error --request PATCH \
+              -H "Authorization: token ${RELEASE_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data-binary "@${payload}" \
+              "${api}/repos/${GITHUB_REPOSITORY}/pulls/${number}" > /dev/null
+            echo "Release PR #${number} refreshed to v${NEXT} bestie 🔄🔥"
+          else
+            jq -n --arg title "$title" --arg body "$body" \
+              '{head: "release-pr", base: "main", title: $title, body: $body}' > "$payload"
+            curl --fail --silent --show-error --request POST \
+              -H "Authorization: token ${RELEASE_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data-binary "@${payload}" \
+              "${api}/repos/${GITHUB_REPOSITORY}/pulls" > /dev/null
+            echo "Release PR for v${NEXT} spawned and ready for the green button 🤖🔥"
+          fi

@@ -2,7 +2,7 @@ namespace LittyLogs.Webhooks.Formatters;
 
 /// <summary>
 /// interface for platform-specific webhook payload formatting.
-/// each platform (Matrix, Teams, etc) implements this to build its own JSON bestie 🪝
+/// each platform implements this to build its own JSON bestie 🪝🔥
 /// </summary>
 public interface IWebhookPayloadFormatter
 {

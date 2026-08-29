@@ -1,115 +1,106 @@
-# 🔥 forgejo runner setup — getting the CI/CD drip installed
+# 🔥 forgejo runner + trunk release setup
 
-this doc tells you how to set up the self-hosted forgejo runner so it can build, test, pack, and ship litty-logs to all three destinations: nuget.org, forgejo releases, and github releases no cap
+this repo has one trunk, one rolling Release PR, immutable tags, and five NuGet nuggies shipping to three destinations. source branches can vanish after squash merge because git-cliff reads the tagged `main` graph, not old branch refs no cap 🌳🔥
 
-## required software on the runner 🧰
+## runner software 🧰🔥
 
-install all of these or the pipeline will be bricked fr fr:
+the `linux` runner image needs these already available:
 
-| tool | why | check command |
-|------|-----|---------------|
-| **.NET SDK 10.0** | builds/tests/packs the whole solution | `dotnet --version` → 10.0.x |
-| **gh** (GitHub CLI) | creates releases on the github mirror | `gh --version` |
-| **git** | obviously bestie | `git --version` |
-| **bash** | workflow scripts use bash shebangs | `bash --version` |
-| **grep** (with `-P`) | version extraction from XML | `grep -P --version` |
-| **awk** | changelog section extraction | `awk --version` |
-| **jq** | JSON-escapes changelog notes + parses forgejo API responses | `jq --version` |
-| **curl** | forgejo release API calls | `curl --version` |
+| tool | why its invited 🔥 | vibe check |
+|---|---|---|
+| .NET SDK 10.0 | build, test, and pack all five projects | `dotnet --version` |
+| git | full tag + commit graph and release branch pushes | `git --version` |
+| bash | workflow scripts | `bash --version` |
+| curl + tar + sha256sum | install-action fetches and verifies temporary git-cliff | `curl --version` |
+| grep with `-P` + awk | version and changelog transforms | `grep -P --version` |
+| jq | safe Forgejo API payloads | `jq --version` |
+| gh | GitHub mirror releases | `gh --version` |
 
-### install commands (debian/ubuntu)
+git-cliff is intentionally not preinstalled on the runner. `https://github.com/taiki-e/install-action@v2` resolves the newest stable `git-cliff@2` with its short dependency cooldown, verifies the upstream checksum, and exposes it only for that job. the fully qualified URL keeps Forgejo from rewriting the action to its default mirror, `fallback: none` forbids Cargo/binstall/source fallbacks, and an explicit version assertion rejects any accidental `3.x` jump. the action tag itself is visible to Renovate, so future action majors stay reviewable instead of fossilizing in shell strings 🔒🔥
 
-```bash
-# .NET SDK 10.0 — check https://dotnet.microsoft.com/download for latest
-wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh
-chmod +x dotnet-install.sh
-./dotnet-install.sh --channel 10.0
+## required secrets 🔐🔥
 
-# gh CLI
-sudo apt install gh
+Forgejo repo → Settings → Actions → Secrets needs:
 
-# the rest should already be there on any linux box no cap
-```
+| secret | exact job 🔥 |
+|---|---|
+| `RELEASE_TOKEN` | real repo-scoped Forgejo PAT with repository contents + pull-request write access; checkout uses it so tag and `release-pr` pushes can trigger downstream workflows |
+| `NUGET_API_KEY` | nuget.org push key scoped to the `LittyLogs*` package glob; set expiry + rotation |
+| `GH_PAT` | fine-grained GitHub token scoped only to `phsk69/litty-logs-dotnet`, Contents read/write, used for mirror release API calls |
+| `GITHUB_TOKEN` | auto-provided by Forgejo Actions for Forgejo release creation and asset uploads |
 
-## required forgejo secrets 🔐
+`RELEASE_TOKEN` cannot be swapped for the workflow’s automatic token: automation-authored pushes may be prevented from waking another workflow, which would leave a valid tag chilling without its ship job. least privilege still wins — keep every token pinned to this repo and only its stated job 🔒🔥
 
-go to your forgejo repo → Settings → Actions → Secrets and add these:
+## Forgejo repo settings 🌳🔒🔥
 
-| secret name | what it does | where to get it |
-|-------------|-------------|-----------------|
-| `GITHUB_TOKEN` | forgejo release creation + .nupkg asset upload via Gitea API | **auto-provided** by forgejo actions — youre already good bestie 💅 |
-| `GH_PAT` | github release creation via `gh release create` on the mirror repo (forgejo push mirroring handles the git sync) | github.com → Settings → Developer Settings → Fine-grained Personal Access Tokens → generate for `phsk69/litty-logs-dotnet` with Contents read/write permission |
-| `NUGET_API_KEY` | push .nupkg files to nuget.org | nuget.org → API Keys → Create → scope: Push, glob pattern: `LittyLogs*` |
+protect `main` with these rules:
 
-### notes on the secrets
+1. Require pull requests and green `commitlint`, `release-policy`, and `build-and-test` checks.
+2. Allow squash merge only so the PR title becomes the single conventional commit that drives SemVer.
+3. Enable automatic source-branch deletion after merge; the rolling `release-pr` branch is recreated whenever needed.
+4. Block direct human pushes while allowing the scoped release identity to push the automation branch and create tags.
 
-- **`GITHUB_TOKEN`** is auto-injected by forgejo actions into every workflow run. you dont need to create this manually, its just there. it handles creating the forgejo release and uploading .nupkg files as release assets 🏠
-- **`GH_PAT`** should be a fine-grained token scoped to ONLY `phsk69/litty-logs-dotnet` with Contents read/write. this is only used for `gh release create` API calls — forgejo push mirroring (Settings → Mirror) handles syncing git refs to github automatically. dont give it more perms than it needs — principle of least privilege is bussin 🔒
-- **`NUGET_API_KEY`** glob pattern `LittyLogs*` covers all five packages (LittyLogs, LittyLogs.Xunit, LittyLogs.File, LittyLogs.Webhooks, LittyLogs.Tool). set an expiry and rotate it periodically bestie
+protect the `v*` tag pattern too: allow the release identity to create a new tag, but deny deletion, force updates, or retargeting for everyone. a published version is immutable forever no cap 🔒🔥
 
-## runner registration 🏃
+keep the existing Forgejo → GitHub push mirror enabled for branches and tags. the release workflow waits for the mirrored tag before creating or refreshing the GitHub release 🪞🔥
 
-the runner needs to be registered with your forgejo instance. the workflows use `runs-on: linux`.
+## runner registration 🏃🔥
 
 ```bash
-# download forgejo-runner (check forgejo docs for latest version)
-# register it with your instance
 forgejo-runner register \
   --instance https://git.dom.tld \
   --token YOUR_RUNNER_TOKEN \
   --name litty-runner \
   --labels linux
 
-# start it up
 forgejo-runner daemon
 ```
 
-check your forgejo repo → Settings → Actions → Runners to verify it shows up as online 🟢
+verify the runner is green under Forgejo repo → Settings → Actions → Runners before merging release-shaped work 🟢🔥
 
-## how the pipelines work 🔄
+## what each pipeline cooks 🧠🔥
 
-### CI (`ci.yml`)
-- triggers on push/PR to `develop` and `main`
-- builds → tests → packs (verify only, doesnt publish)
-- if this fails your code is bricked and you should not merge no cap
+### CI — `.forgejo/workflows/ci.yml`
 
-### Release (`release.yml`)
-- triggers when you push a `v*` tag (e.g. `v0.1.0`)
-- forgejo push mirroring auto-syncs the tag + branches to github (Settings → Mirror)
-- the pipeline hits three destinations:
-  1. **build + test + pack** — sanity check, tag version must match Directory.Build.props
-  2. **nuget.org** — pushes all five .nupkg files with `--skip-duplicate`
-  3. **forgejo release** — creates a release on forgejo via Gitea API, uploads .nupkg assets
-  4. **github release** — waits for mirror sync, then creates a release via `gh release create`, uploads .nupkg assets
-- changelog section gets auto-extracted from `CHANGELOG.md` for release notes
-- every step is retryable — re-run the workflow from the UI all day, zero errors 🔄
+- `commitlint` requires a conventional PR title ending in 🔥; squash merge turns that title into release input.
+- `release-policy` proves fix/perf/revert/dependency chores are patch, features are minor, breaking changes are major even below 1.0, noise-only commits are silent, and deleted source branches change nothing.
+- `build-and-test` builds, tests, and packs without publishing.
 
-### typical release flow
-```bash
-# on your dev machine (must have git flow CLI installed):
-just release patch          # gitflow: bump, branch, finish, push — all in one command
-# forgejo runner takes it from here — nuget + forgejo release + github release 🚀
-```
+### rolling Release PR — `.forgejo/workflows/release-pr.yml`
 
-### first release (version already set)
-```bash
-just release-current        # gitflow release without bumping, pushes everything
-```
+- every push to `main` runs the newest checksum-verified stable git-cliff `2.x` against commits after the newest matching tag.
+- `feat!` is major; `feat` is minor; `fix`, `perf`, `revert`, and `chore(deps)` are patch; generic maintenance commits are skipped.
+- releasable work force-refreshes the single `release-pr` branch and opens or updates `chore(release): vX.Y.Z 🔥`.
+- merging that PR changes `Directory.Build.props`; the next run creates one annotated tag on that exact `main` commit.
+- an existing tag at that same commit is a retry-safe no-op. an existing tag anywhere else is a hard failure and is never moved or deleted.
+- manual dispatch can request `auto`, `patch`, `minor`, `major`, or `promote`; dispatch only makes a PR and never tags its starting commit.
+- while the one-off RC is current, automatic bumping pauses instead of inventing `rc.2`; `promote` is the explicit gate to stable and also includes any emergency conventional commits landed during the freeze 🔒🔥
 
-### hotfix flow
-```bash
-just hotfix patch           # start hotfix branch, bump version on branch
-# make your fix, commit it
-just finish                 # auto-detects branch type, finishes + pushes everything
-```
+### ship job — `.forgejo/workflows/release.yml`
 
-all release commands auto-push develop + main + tag to origin. no manual `git push` needed fr fr 🔥
+the immutable `v*` tag wakes one serialized job that:
 
-## troubleshooting 🔧
+1. proves the tagged commit is on `main` and the tag matches strict SemVer + `Directory.Build.props`.
+2. builds, tests, and packs all five NuGet packages.
+3. pushes to nuget.org with `--skip-duplicate`.
+4. creates or refreshes the Forgejo release and package assets.
+5. waits for the GitHub mirror tag, then creates or refreshes the GitHub release and assets.
 
-- **"fam your working tree is dirty"** — commit or stash your changes before running release/hotfix commands
-- **"bruh the tag says X but Directory.Build.props says Y"** — version mismatch. make sure `just release` finished cleanly
-- **nuget push fails with 403** — your `NUGET_API_KEY` is expired or doesnt have push scope. regenerate it on nuget.org
-- **gh release fails** — check that `GH_PAT` has Contents read/write on `phsk69/litty-logs-dotnet` and the repo exists
-- **forgejo release fails** — check the Gitea API response in the workflow logs. usually a token permissions issue
-- **runner not picking up jobs** — check `forgejo-runner daemon` is running and the runner shows as online in forgejo settings
+retry the same workflow/tag whenever a destination flakes. do not create the same tag again and never delete it; the three publishers are idempotent on the original version 🔄🔒🔥
+
+## first 1.0 rollout 🧪🔥
+
+the adoption PR carries stable `1.0.0` because the Slack and Matrix sinks have both passed live channel smoke tests before commit. dependency versions stay unchanged in this release; Renovate gets clean follow-up PRs with independent CI instead of hiding upgrades inside the breaking API release 🤖🔒🔥
+
+squash the adoption PR with the breaking title `feat(webhooks)!: ship Slack blocks and trunk releases 🔥`. the resulting `main` commit changes `Directory.Build.props` from `0.2.4` to `1.0.0`, so automation creates immutable `v1.0.0` there and the tag ships the stable NuGet packages directly 🚀🔥
+
+## troubleshooting without cursed tag surgery 🔧🔥
+
+- **no Release PR appears** — the squash type may be non-releasable; run `just release-next` with your managed git-cliff install to preview read-only.
+- **`RELEASE_TOKEN` missing or denied** — create a repo-scoped PAT with contents + PR write and update the Actions secret.
+- **checksum verification fails** — stop. do not disable verification or enable a fallback; let install-action's manifest catch up to the upstream release.
+- **tag already points elsewhere** — do not delete or move it. choose the next unused version through a forced dispatch.
+- **tag matches but a publisher failed** — rerun `release.yml` for the same tag; NuGet and both release destinations reuse the version safely.
+- **NuGet 403** — rotate `NUGET_API_KEY` and keep the `LittyLogs*` push scope.
+- **GitHub release cannot see the tag** — confirm the Forgejo push mirror is healthy and `GH_PAT` is scoped to the mirror repo.
+- **runner stays asleep** — confirm `forgejo-runner daemon` and the `linux` label are online.

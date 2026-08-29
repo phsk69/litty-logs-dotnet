@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -5,12 +6,11 @@ using LittyLogs;
 using LittyLogs.Webhooks;
 using Microsoft.Extensions.Logging;
 
-// load .env file if it exists — .NET dont do this natively so we roll our own 💅
-// looks for .env in the repo root (walks up from the binary dir)
-var dir = Directory.GetCurrentDirectory();
-while (dir is not null)
+// load the nearest .env because .NET leaves that vibe to us bestie 💅🔥
+var directory = Directory.GetCurrentDirectory();
+while (directory is not null)
 {
-    var envFile = Path.Combine(dir, ".env");
+    var envFile = Path.Combine(directory, ".env");
     if (File.Exists(envFile))
     {
         foreach (var line in File.ReadAllLines(envFile))
@@ -18,36 +18,33 @@ while (dir is not null)
             var trimmed = line.Trim();
             if (trimmed.Length == 0 || trimmed.StartsWith('#'))
                 continue;
-            var eq = trimmed.IndexOf('=');
-            if (eq <= 0)
+
+            var separator = trimmed.IndexOf('=');
+            if (separator <= 0)
                 continue;
-            var key = trimmed[..eq].Trim();
-            var val = trimmed[(eq + 1)..].Trim();
-            Environment.SetEnvironmentVariable(key, val);
+
+            Environment.SetEnvironmentVariable(
+                trimmed[..separator].Trim(),
+                trimmed[(separator + 1)..].Trim());
         }
         break;
     }
-    dir = Directory.GetParent(dir)?.FullName;
+
+    directory = Directory.GetParent(directory)?.FullName;
 }
 
-// meta logger for structural output — we eat our own dogfood bestie 🐕
-using var meta = LoggerFactory.Create(l => l.AddLittyLogs());
+using var meta = LoggerFactory.Create(logging => logging.AddLittyLogs());
 var log = meta.CreateLogger("WebhookExample");
+log.LogInformation("litty webhook demo is serving Matrix + Slack dual-sink rizz 🪝🔥");
 
-log.LogInformation("litty-logs webhook sink example — yeet logs to chat no cap 🪝🔥");
-
-// === detect which sinks are live vs mock ===
-// set HOOKSHOT_URL and/or TEAMS_WEBHOOK_URL in .env to go live
-// without em we spin up a local mock listener — fully self-contained bestie 💅
 var hookshotUrl = Environment.GetEnvironmentVariable("HOOKSHOT_URL");
-var teamsUrl = Environment.GetEnvironmentVariable("TEAMS_WEBHOOK_URL");
+var slackUrl = Environment.GetEnvironmentVariable("SLACK_WEBHOOK_URL");
 var matrixLive = !string.IsNullOrWhiteSpace(hookshotUrl);
-var teamsLive = !string.IsNullOrWhiteSpace(teamsUrl);
-var needsMock = !matrixLive || !teamsLive;
+var slackLive = !string.IsNullOrWhiteSpace(slackUrl);
+var needsMock = !matrixLive || !slackLive;
 
-// mock listener URL — used for any sink that aint got a real webhook URL
 const string mockUrl = "http://localhost:19380/webhook/";
-var capturedPayloads = new List<string>();
+var capturedPayloads = new ConcurrentQueue<string>();
 HttpListener? listener = null;
 Task? listenerTask = null;
 
@@ -56,211 +53,163 @@ if (needsMock)
     listener = new HttpListener();
     listener.Prefixes.Add(mockUrl);
     listener.Start();
-
-    // handle requests in the background — capture them POST payloads
     listenerTask = Task.Run(async () =>
     {
         while (true)
         {
             try
             {
-                var ctx = await listener.GetContextAsync();
-                if (ctx.Request.HttpMethod == "POST" && ctx.Request.HasEntityBody)
+                var context = await listener.GetContextAsync();
+                if (context.Request.HttpMethod == "POST" && context.Request.HasEntityBody)
                 {
-                    using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
-                    var body = await reader.ReadToEndAsync();
-                    capturedPayloads.Add(body);
+                    using var reader = new StreamReader(context.Request.InputStream, Encoding.UTF8);
+                    capturedPayloads.Enqueue(await reader.ReadToEndAsync());
                 }
-                ctx.Response.StatusCode = 200;
-                ctx.Response.Close();
+
+                context.Response.StatusCode = 200;
+                context.Response.Close();
             }
             catch (HttpListenerException)
             {
-                break; // listener stopped, we out 🫡
+                break; // mock listener clocked out cleanly bestie 🫡🔥
             }
         }
     });
 }
 
-// show which sinks are live vs mock
 var matrixTarget = matrixLive ? hookshotUrl! : mockUrl;
-var teamsTarget = teamsLive ? teamsUrl! : mockUrl;
+var slackTarget = slackLive ? slackUrl! : mockUrl;
 
-log.LogInformation("sink status:");
-if (matrixLive)
-    log.LogInformation("  🟣 Matrix  — LIVE (hookshot) 🔥");
-else
-    log.LogInformation("  🟣 Matrix  — MOCK (set HOOKSHOT_URL in .env to go live)");
-if (teamsLive)
-    log.LogInformation("  🟦 Teams   — LIVE (adaptive cards) 🔥");
-else
-    log.LogInformation("  🟦 Teams   — MOCK (set TEAMS_WEBHOOK_URL in .env to go live)");
+log.LogInformation("Matrix is {Mode} 🟣🔥", matrixLive ? "LIVE" : "MOCK — set HOOKSHOT_URL to go live");
+log.LogInformation("Slack is {Mode} 🟢🔥", slackLive ? "LIVE" : "MOCK — set SLACK_WEBHOOK_URL to go live");
 
-// === demo 1: matrix-only sink ===
-log.LogInformation("=== demo 1: matrix sink (Warning+, 200ms batch interval) ===");
-log.LogInformation("logging at all levels but only Warning+ should reach the webhook...");
-capturedPayloads.Clear();
-
+// demo 1: Matrix hookshot keeps its existing safe HTML + text fallback energy 🟣🔥
+log.LogInformation("demo 1: Matrix Warning+ sink is cooking 🟣🔥");
+Clear(capturedPayloads);
 using (var factory = LoggerFactory.Create(logging =>
 {
     logging.SetMinimumLevel(LogLevel.Trace);
-    logging.AddLittyMatrixLogs(matrixTarget, opts =>
+    logging.AddLittyMatrixLogs(matrixTarget, options =>
     {
-        opts.BatchInterval = TimeSpan.FromMilliseconds(200);
-        opts.BatchSize = 10;
+        options.BatchInterval = TimeSpan.FromMilliseconds(200);
+        options.BatchSize = 10;
     });
 }))
 {
     var logger = factory.CreateLogger("MatrixDemo");
-
-    // these should get FILTERED — below MinimumLevel (Warning)
-    logger.LogTrace("this trace wont hit chat — too lowkey 👀");
-    logger.LogDebug("this debug stays local — chat dont need this 🔍");
-    logger.LogInformation("this info is bussin but chat dont care 🔥");
-
-    // these should REACH the webhook — at or above Warning
-    logger.LogWarning("yo something sus just happened bestie 😤");
-    logger.LogError("big L detected in the pipeline 💀");
-    logger.LogCritical("EVERYTHING IS ON FIRE WE ARE SO COOKED ☠️");
-
-    // framework message rewrite works in webhooks too
-    logger.LogWarning("Application is shutting down...");
-
-    // exception with markdown code block
-    try
-    {
-        throw new InvalidOperationException("database connection is mega bricked fr fr");
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "caught an L trying to query the database");
-    }
-
+    logger.LogInformation("this stays local because Warning is the chat floor 🔍🔥");
+    logger.LogWarning("Matrix caught a suspicious vibe 😤🔥");
+    logger.LogError("Matrix caught a certified L 💀🔥");
     await Task.Delay(600);
 }
-
 await Task.Delay(200);
 PrintPayloads(log, "matrix", capturedPayloads, matrixLive);
 
-// === demo 2: teams-only sink ===
-log.LogInformation("=== demo 2: teams sink (Warning+, Adaptive Cards v1.5) ===");
-log.LogInformation("severity-colored containers — your Teams chat lowkey looks like a dashboard 💅");
-capturedPayloads.Clear();
-
+// demo 2: Slack uses safe plain-text Block Kit, so user-shaped markdown stays literal 🟢🔥
+log.LogInformation("demo 2: Slack plain-text Block Kit sink is cooking 🟢🔥");
+Clear(capturedPayloads);
 using (var factory = LoggerFactory.Create(logging =>
 {
     logging.SetMinimumLevel(LogLevel.Trace);
-    logging.AddLittyTeamsLogs(teamsTarget, opts =>
+    logging.AddLittySlackLogs(slackTarget, options =>
     {
-        opts.BatchInterval = TimeSpan.FromMilliseconds(200);
-        opts.BatchSize = 10;
+        options.BatchInterval = TimeSpan.FromMilliseconds(200);
+        options.BatchSize = 10;
+        options.Username = "Deploy Alerts";
     });
 }))
 {
-    var logger = factory.CreateLogger("TeamsDemo");
-
-    logger.LogWarning("yo something sus just happened bestie 😤");
-    logger.LogError("big L detected in the pipeline 💀");
-    logger.LogCritical("EVERYTHING IS ON FIRE WE ARE SO COOKED ☠️");
-
+    var logger = factory.CreateLogger("SlackDemo");
+    logger.LogWarning("Slack sees this as literal plain text: <!channel> *not bold* 🔒🔥");
     try
     {
         throw new InvalidOperationException("database connection is mega bricked fr fr");
     }
-    catch (Exception ex)
+    catch (Exception exception)
     {
-        logger.LogError(ex, "caught an L trying to query the database");
+        logger.LogError(exception, "Slack gets the stack trace without markdown fences 💀🔥");
     }
-
     await Task.Delay(600);
 }
-
 await Task.Delay(200);
-PrintPayloads(log, "teams", capturedPayloads, teamsLive);
+PrintPayloads(log, "slack", capturedPayloads, slackLive);
 
-// === demo 3: DUAL MODE — both sinks firing simultaneously 🔥🔥🔥 ===
-log.LogInformation("=== demo 3: DUAL MODE — matrix + teams at the same time bestie 💅 ===");
-log.LogInformation("separate providers, separate channels, zero interference no cap");
-capturedPayloads.Clear();
-
+// demo 3: generic providers can run together with separate thresholds and channels 🪝🔥
+log.LogInformation("demo 3: Matrix + Slack dual mode has entered the chat 🟣🟢🔥");
+Clear(capturedPayloads);
 using (var factory = LoggerFactory.Create(logging =>
 {
     logging.SetMinimumLevel(LogLevel.Trace);
-
-    // matrix sink — its own provider, its own channel, its own HTTP client 🟣
-    logging.AddLittyMatrixLogs(matrixTarget, opts =>
+    logging.AddLittyMatrixLogs(matrixTarget, options =>
     {
-        opts.MinimumLevel = LogLevel.Warning;
-        opts.BatchInterval = TimeSpan.FromMilliseconds(200);
-        opts.BatchSize = 10;
-        opts.Username = "MatrixBot";
+        options.MinimumLevel = LogLevel.Warning;
+        options.BatchInterval = TimeSpan.FromMilliseconds(200);
+        options.Username = "Matrix Alerts";
     });
-
-    // teams sink — totally independent, vibing on its own 🟦
-    logging.AddLittyTeamsLogs(teamsTarget, opts =>
+    logging.AddLittySlackLogs(slackTarget, options =>
     {
-        opts.MinimumLevel = LogLevel.Error; // only big Ls go to teams
-        opts.BatchInterval = TimeSpan.FromMilliseconds(200);
-        opts.BatchSize = 10;
-        opts.Username = "TeamsBot";
+        options.MinimumLevel = LogLevel.Error;
+        options.BatchInterval = TimeSpan.FromMilliseconds(200);
+        options.Username = "Slack Alerts";
     });
 }))
 {
     var logger = factory.CreateLogger("DualDemo");
-
-    // Warning → Matrix only (Teams min is Error)
-    logger.LogWarning("this warning hits Matrix but not Teams — different thresholds bestie 😤");
-    // Error → BOTH sinks
-    logger.LogError("this error hits BOTH sinks simultaneously no cap 💀");
-
-    try
-    {
-        throw new InvalidOperationException("dual webhook mode is bussin fr fr");
-    }
-    catch (Exception ex)
-    {
-        logger.LogCritical(ex, "critical with exception — both sinks get this");
-    }
-
+    logger.LogWarning("this warning only reaches the Matrix threshold 😤🔥");
+    logger.LogError("this error hits both independent webhook providers 💀🔥");
     await Task.Delay(600);
 }
-
 await Task.Delay(200);
-PrintPayloads(log, "dual (matrix + teams)", capturedPayloads, matrixLive && teamsLive);
+PrintPayloads(log, "dual", capturedPayloads, matrixLive && slackLive);
 
-// === cleanup ===
 if (listener is not null)
 {
     listener.Stop();
-    try { await listenerTask!; } catch { /* listener cleanup 🫡 */ }
+    try
+    {
+        await listenerTask!;
+    }
+    catch
+    {
+        // mock cleanup catching a shutdown race is totally chill 🫡🔥
+    }
 }
 
-var liveCount = (matrixLive ? 1 : 0) + (teamsLive ? 1 : 0);
+var liveCount = (matrixLive ? 1 : 0) + (slackLive ? 1 : 0);
 log.LogInformation(liveCount switch
 {
-    2 => "webhook sink demo complete — both Matrix AND Teams went live, go check your rooms bestie 🪝🟣🟦🔥",
-    1 => "webhook sink demo complete — one sink went live, set both URLs in .env for full dual mode bestie 🪝🔥",
-    _ => "webhook sink demo complete — set HOOKSHOT_URL and/or TEAMS_WEBHOOK_URL in .env to go live bestie 🪝🔥💅"
+    2 => "both live sinks got the payloads, go check the rooms bestie 🪝🔥",
+    1 => "one live sink got the goods; set both URLs for maximum dual-mode rizz 🪝🔥",
+    _ => "mock demo ate; set HOOKSHOT_URL and SLACK_WEBHOOK_URL when live chat is the vibe 🪝🔥"
 });
 
-// === helper to display captured payloads or tell user to check their chat ===
-void PrintPayloads(ILogger metaLog, string sinkName, List<string> payloads, bool isLive)
+static void Clear(ConcurrentQueue<string> payloads)
+{
+    while (payloads.TryDequeue(out _))
+    {
+        // dequeue until the next demo has a clean slate 🧹🔥
+    }
+}
+
+static void PrintPayloads(
+    ILogger logger,
+    string sinkName,
+    ConcurrentQueue<string> payloads,
+    bool isLive)
 {
     if (isLive)
     {
-        metaLog.LogInformation("messages yeeted to {SinkName} — check your chat bestie 🔥", sinkName);
+        logger.LogInformation("payloads yeeted to live {SinkName}, check the chat bestie 🔥", sinkName);
         return;
     }
 
-    metaLog.LogInformation("captured {Count} {SinkName} payload(s) 📦", payloads.Count, sinkName);
-
+    var snapshot = payloads.ToArray();
+    logger.LogInformation("captured {Count} {SinkName} payloads in mock mode 📦🔥", snapshot.Length, sinkName);
     var prettyOptions = new JsonSerializerOptions { WriteIndented = true };
-    for (var i = 0; i < payloads.Count; i++)
+    for (var index = 0; index < snapshot.Length; index++)
     {
-        metaLog.LogInformation("--- {SinkName} payload #{Number} ---", sinkName, i + 1);
-        var doc = JsonDocument.Parse(payloads[i]);
-        var prettyJson = JsonSerializer.Serialize(doc, prettyOptions);
-        foreach (var line in prettyJson.Split('\n'))
-            metaLog.LogDebug("{Line}", line);
+        using var document = JsonDocument.Parse(snapshot[index]);
+        var prettyJson = JsonSerializer.Serialize(document, prettyOptions);
+        logger.LogDebug("{SinkName} payload #{Number}:\n{Payload}", sinkName, index + 1, prettyJson);
     }
 }
