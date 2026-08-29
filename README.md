@@ -26,7 +26,7 @@ info: Microsoft.Hosting.Lifetime[0]
 ```bash
 dotnet add package LittyLogs
 
-# for xUnit test output (optional, separate package)
+# for xUnit v3 test output (optional, separate package)
 dotnet add package LittyLogs.Xunit
 
 # for file sink with rotation and gzip compression (optional, separate package)
@@ -81,12 +81,11 @@ var logger = factory.CreateLogger("MyScript");
 logger.LogInformation("we in here bestie 🔥");
 ```
 
-### xUnit tests
+### xUnit v3 tests
 
 ```csharp
 using LittyLogs.Xunit;
 using Xunit;
-using Xunit.Abstractions;
 
 public class MyTests
 {

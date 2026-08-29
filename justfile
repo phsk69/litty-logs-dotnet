@@ -1,5 +1,9 @@
 # litty-logs — the most bussin logging library no cap 🔥
 
+# keep MSBuild worker state isolated so every recipe cooks clean and deterministic 🔥
+export MSBUILDDISABLENODEREUSE := "1"
+export DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER := "1"
+
 # build the whole solution — litty-fied output no cap 🏗️🔥
 build *args:
     dotnet run --project src/LittyLogs.Tool -- build {{ args }}
@@ -24,7 +28,7 @@ example name *args:
         web)      dotnet run --project examples/LittyLogs.Example.WebApi -- {{ args }} ;;
         hosted)   dotnet run --project examples/LittyLogs.Example.HostedService -- {{ args }} ;;
         console)  dotnet run --project examples/LittyLogs.Example.Console -- {{ args }} ;;
-        xunit)    dotnet run --project src/LittyLogs.Tool -- test examples/LittyLogs.Example.Xunit {{ args }} ;;
+        xunit)    dotnet run --project src/LittyLogs.Tool -- test --project examples/LittyLogs.Example.Xunit/LittyLogs.Example.Xunit.csproj {{ args }} ;;
         json)     dotnet run --project examples/LittyLogs.Example.Json -- {{ args }} ;;
         filesink) dotnet run --project examples/LittyLogs.Example.FileSink -- {{ args }} ;;
         webhooks) dotnet run --project examples/LittyLogs.Example.Webhooks -- {{ args }} ;;

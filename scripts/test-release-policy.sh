@@ -12,6 +12,12 @@ fi
 fixture_root=$(mktemp -d)
 trap 'rm -rf "$fixture_root"' EXIT
 
+fixture_signing_key="${fixture_root}/release-signing"
+fixture_allowed_signers="${fixture_root}/allowed_signers"
+ssh-keygen -q -t ed25519 -N '' -f "$fixture_signing_key"
+fixture_public_key=$(awk '{ print $1 " " $2 }' "${fixture_signing_key}.pub")
+printf 'release-policy@users.noreply.local namespaces="git" %s\n' "$fixture_public_key" > "$fixture_allowed_signers"
+
 new_fixture() {
     local name="$1"
     local version="${2:-0.2.4}"
@@ -100,12 +106,16 @@ git init --quiet --initial-branch=main "$recovery_fixture"
 git -C "$recovery_fixture" config user.name "release recovery bestie 🔥"
 git -C "$recovery_fixture" config user.email "release-recovery@users.noreply.local"
 git -C "$recovery_fixture" config commit.gpgsign false
-git -C "$recovery_fixture" config tag.gpgSign false
+git -C "$recovery_fixture" config gpg.format ssh
+git -C "$recovery_fixture" config gpg.ssh.program ssh-keygen
+git -C "$recovery_fixture" config user.signingkey "$fixture_signing_key"
+git -C "$recovery_fixture" config gpg.ssh.allowedSignersFile "$fixture_allowed_signers"
+git -C "$recovery_fixture" config tag.gpgSign true
 printf '<Project>\n  <PropertyGroup>\n    <Version>0.2.4</Version>\n  </PropertyGroup>\n</Project>\n' > "${recovery_fixture}/Directory.Build.props"
 printf '# changelog 📜🔥\n\n## [Unreleased]\n\n## [0.2.4]\n' > "${recovery_fixture}/CHANGELOG.md"
 git -C "$recovery_fixture" add Directory.Build.props CHANGELOG.md
 git -C "$recovery_fixture" commit --quiet -m "chore: establish the recovery baseline 🔥"
-git -C "$recovery_fixture" tag v0.2.4
+git -C "$recovery_fixture" tag --message "v0.2.4 recovery baseline dropped 🔥" v0.2.4
 git -C "$recovery_fixture" remote add origin "$recovery_remote"
 git -C "$recovery_fixture" push --quiet origin main refs/tags/v0.2.4
 

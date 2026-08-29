@@ -29,9 +29,14 @@ jobs:
       - name: make sure the release PAT is real rizz 🔒🔥
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          AUTOMATION_SSH_SIGNING_KEY: ${{ secrets.AUTOMATION_SSH_SIGNING_KEY }}
         run: |
           if [ -z "$RELEASE_TOKEN" ]; then
             echo "bruh RELEASE_TOKEN is missing — action-token pushes cannot wake the downstream release reliably 💀🔥"
+            exit 1
+          fi
+          if [ -z "$AUTOMATION_SSH_SIGNING_KEY" ]; then
+            echo "bruh AUTOMATION_SSH_SIGNING_KEY is missing — unsigned release commits and tags are banned 💀🔥"
             exit 1
           fi
 
@@ -40,6 +45,34 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: arm the dedicated SSH release signer 🔏🔥
+        env:
+          AUTOMATION_SSH_SIGNING_KEY: ${{ secrets.AUTOMATION_SSH_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          signing_dir="${RUNNER_TEMP:-/tmp}/litty-release-signing"
+          signing_key="${signing_dir}/key"
+          install -d -m 700 "$signing_dir"
+          printf '%s\n' "$AUTOMATION_SSH_SIGNING_KEY" > "$signing_key"
+          chmod 600 "$signing_key"
+          ssh-keygen -y -f "$signing_key" > "${signing_key}.pub"
+          actual_fingerprint=$(ssh-keygen -lf "${signing_key}.pub" | awk '{print $2}')
+          expected_fingerprint='SHA256:glcAr+2qy78C126hwWy7It4ND94VzwatrJkb+eeBByg'
+          if [ "$actual_fingerprint" != "$expected_fingerprint" ]; then
+            echo "bruh release signing key fingerprint ${actual_fingerprint} is not the trusted key 💀🔥"
+            exit 1
+          fi
+          git config user.name "litty logs release bot 🔥"
+          git config user.email "litty-logs-release@noreply.git.ssy.dk"
+          git config gpg.format ssh
+          git config gpg.ssh.program ssh-keygen
+          git config user.signingkey "$signing_key"
+          git config gpg.ssh.allowedSignersFile "$GITHUB_WORKSPACE/.forgejo/signing/allowed_signers"
+          git config gpg.ssh.revocationFile "$GITHUB_WORKSPACE/.forgejo/signing/revoked_signers"
+          git config commit.gpgsign true
+          git config tag.gpgSign true
+          echo "release signer fingerprint verified and armed 🔏🔥"
 
       - name: grab the newest checksum-verified git-cliff 2.x 🧗🔥
         uses: https://github.com/taiki-e/install-action@v2
@@ -186,12 +219,11 @@ jobs:
           ' CHANGELOG.md > "$next_changelog"
           mv "$next_changelog" CHANGELOG.md
 
-          git config user.name "litty release bot 🔥"
-          git config user.email "release-bot@users.noreply.local"
           git fetch origin refs/heads/release-pr:refs/remotes/origin/release-pr || true
           git checkout -B release-pr "$GITHUB_SHA"
           git add Directory.Build.props CHANGELOG.md
-          git commit -m "chore(release): v${NEXT} 🔥"
+          git commit --gpg-sign -m "chore(release): v${NEXT} 🔥"
+          git verify-commit HEAD
           git push --force-with-lease origin release-pr
 
       - name: open or refresh the one rolling Release PR 🤖🔥

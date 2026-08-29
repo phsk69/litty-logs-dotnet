@@ -1,0 +1,4 @@
+phsk69@tuta.io namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKO3nx/Ez3zHTwCpiebMHYsnA2IW6r13Qdv0GbzXl8LI
+forgejo@noreply.git.ssy.dk namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIPhxeaCRjFG3W6B7UQbp6gzq/Iz9x3oAds7IF8cBtcP
+renovate@monkeh.io namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICQPRMlLNtiSrgT+hyPEqtirPjQW4YEe/BAJap6BDl6N
+litty-logs-release@noreply.git.ssy.dk namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDiohX1uoAcj//8qYVBB8kKijkkf0rM8G0C3CBZ+ujiG

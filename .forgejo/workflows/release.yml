@@ -19,6 +19,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: reject unsigned or untrusted release tags 🔏🔥
+        run: |
+          set -euo pipefail
+          git config gpg.format ssh
+          git config gpg.ssh.program ssh-keygen
+          git config gpg.ssh.allowedSignersFile "$GITHUB_WORKSPACE/.forgejo/signing/allowed_signers"
+          git config gpg.ssh.revocationFile "$GITHUB_WORKSPACE/.forgejo/signing/revoked_signers"
+          git verify-tag "$GITHUB_REF_NAME"
+          echo "${GITHUB_REF_NAME} carries a trusted SSH signature, ship gate slayed 🔏🔥"
+
       - name: make sure the tag grew from the main trunk 🌳🔒
         run: |
           git fetch --no-tags origin main

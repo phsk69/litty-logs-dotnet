@@ -2,7 +2,6 @@ using LittyLogs.Xunit;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace LittyLogs.Tests;
 

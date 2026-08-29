@@ -27,10 +27,18 @@ static async Task<int> RunTest(string[] extraArgs)
 
     var arguments = new List<string> { "test" };
 
-    // auto-inject logger so ITestOutputHelper litty logs show up in output
-    // console;verbosity=detailed gives us test output without MSBuild spam
-    if (!extraArgs.Any(a => a.StartsWith("--logger", StringComparison.OrdinalIgnoreCase)))
+    if (UsesMicrosoftTestingPlatform())
     {
+        // MTP output stays detailed and ITestOutputHelper logs keep serving main-character energy 🔥
+        if (!extraArgs.Any(a => a.Equals("--output", StringComparison.OrdinalIgnoreCase)))
+            arguments.AddRange(["--output", "Detailed"]);
+
+        if (!extraArgs.Any(a => a.Equals("--show-live-output", StringComparison.OrdinalIgnoreCase)))
+            arguments.AddRange(["--show-live-output", "on"]);
+    }
+    else if (!extraArgs.Any(a => a.StartsWith("--logger", StringComparison.OrdinalIgnoreCase)))
+    {
+        // VSTest besties still get the detailed legacy logger while they migrate 🔥
         arguments.AddRange(["--logger", "console;verbosity=detailed"]);
     }
 
@@ -38,6 +46,41 @@ static async Task<int> RunTest(string[] extraArgs)
 
     return await DotnetProcessRunner.RunAsync(arguments,
         line => TestOutputRewriter.TryRewrite(line) ?? line);
+}
+
+static bool UsesMicrosoftTestingPlatform()
+{
+    for (var directory = new DirectoryInfo(Directory.GetCurrentDirectory()); directory is not null; directory = directory.Parent)
+    {
+        var globalJsonPath = Path.Combine(directory.FullName, "global.json");
+        if (!File.Exists(globalJsonPath))
+            continue;
+
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(
+                File.ReadAllText(globalJsonPath),
+                new System.Text.Json.JsonDocumentOptions
+                {
+                    AllowTrailingCommas = true,
+                    CommentHandling = System.Text.Json.JsonCommentHandling.Skip,
+                });
+
+            return document.RootElement.TryGetProperty("test", out var test)
+                && test.TryGetProperty("runner", out var runner)
+                && string.Equals(
+                    runner.GetString(),
+                    "Microsoft.Testing.Platform",
+                    StringComparison.OrdinalIgnoreCase);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // dotnet owns the real validation; a cooked file falls back to legacy behavior here 🔥
+            return false;
+        }
+    }
+
+    return false;
 }
 
 static async Task<int> RunBuild(string[] extraArgs)

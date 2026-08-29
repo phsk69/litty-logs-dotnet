@@ -61,9 +61,10 @@ if ! grep -qF "## [${current}]" CHANGELOG.md; then
     exit 1
 fi
 
-git config user.name "litty release bot 🔥"
-git config user.email "release-bot@users.noreply.local"
-git tag --annotate "$tag" --message "${tag} dropped from main no cap 🔥"
+git config user.name "litty logs release bot 🔥"
+git config user.email "litty-logs-release@noreply.git.ssy.dk"
+git tag --sign "$tag" --message "${tag} dropped from main no cap 🔥"
+git verify-tag "$tag"
 git push origin "refs/tags/${tag}"
 echo "${tag} now points at ${actual_sha} via ${tag_reason}; the ship pipeline is awake 🚀🔥" >&2
 echo "tagged"

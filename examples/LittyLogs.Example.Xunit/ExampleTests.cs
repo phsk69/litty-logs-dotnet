@@ -1,7 +1,6 @@
 using LittyLogs.Xunit;
 using Microsoft.Extensions.Logging;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace LittyLogs.Example.Xunit;
 
@@ -93,6 +92,9 @@ public class ExampleTests
 /// </summary>
 internal class TestOutputHelperProxy(Action<string> writeLine) : ITestOutputHelper
 {
+    public string Output => string.Empty;
+    public void Write(string message) => writeLine(message);
+    public void Write(string format, params object[] args) => writeLine(string.Format(format, args));
     public void WriteLine(string message) => writeLine(message);
     public void WriteLine(string format, params object[] args) => writeLine(string.Format(format, args));
 }
