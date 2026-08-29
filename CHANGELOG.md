@@ -4,6 +4,16 @@ all the glow-ups and level-ups for litty-logs no cap 🔥
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-08-29
+
+
+### dependencies — fresh nuggies 🤖🔥
+
+- Update https://data.forgejo.org/actions/checkout action to v7 🔥 🔥
+- Update dependency xunit.runner.visualstudio to v4 🔥 🔥
+- Update dependency microsoft.net.test.sdk to v18 🔥 (#6) 🔥
+
+
 ## [1.0.1] - 2026-08-29
 
 
