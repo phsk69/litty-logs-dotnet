@@ -4,6 +4,15 @@ all the glow-ups and level-ups for litty-logs no cap 🔥
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-09-10
+
+
+### dependencies — fresh nuggies 🤖🔥
+
+- Update dependency microsoft.extensions.http.resilience to 10.10.0 🔥 (#14) 🔥
+- Update dependency microsoft.net.test.sdk to 18.10.0 🔥 (#13) 🔥
+
+
 ## [2.0.0] - 2026-08-29
 
 
