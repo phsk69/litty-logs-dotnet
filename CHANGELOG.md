@@ -4,6 +4,14 @@ all the glow-ups and level-ups for litty-logs no cap 🔥
 
 ## [Unreleased]
 
+## [2.0.4] - 2026-09-24
+
+
+### dependencies — fresh nuggies 🤖🔥
+
+- Update dependency moq to 4.21.0 🔥 (#20) 🔥
+
+
 ## [2.0.3] - 2026-09-15
 
 
