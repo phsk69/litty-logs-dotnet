@@ -5,7 +5,7 @@
   "baseBranchPatterns": ["main"],
   "dependencyDashboard": true,
   "labels": ["dependencies"],
-  "prConcurrentLimit": 0,
+  "prConcurrentLimit": 5,
   "prHourlyLimit": 0,
   "branchConcurrentLimit": 0,
   "semanticCommits": "enabled",
