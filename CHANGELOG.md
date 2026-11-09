@@ -4,6 +4,14 @@ all the glow-ups and level-ups for litty-logs no cap 🔥
 
 ## [Unreleased]
 
+## [2.0.7] - 2026-11-09
+
+
+### dependencies — fresh nuggies 🤖🔥
+
+- Update xunit-dotnet monorepo to 4.0.3 🔥 (#29) 🔥
+
+
 ## [2.0.6] - 2026-10-16
 
 
