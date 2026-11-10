@@ -4,6 +4,14 @@ all the glow-ups and level-ups for litty-logs no cap 🔥
 
 ## [Unreleased]
 
+## [2.0.8] - 2026-11-10
+
+
+### dependencies — fresh nuggies 🤖🔥
+
+- Update dependency microsoft.net.test.sdk to 18.11.1 🔥 (#33) 🔥
+
+
 ## [2.0.7] - 2026-11-09
 
 
