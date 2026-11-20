@@ -61,6 +61,7 @@ jobs:
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v7
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Receive the packages tested in this run
         uses: https://code.forgejo.org/forgejo/download-artifact@v7
@@ -100,34 +101,26 @@ jobs:
           fi
           echo "version vibes match — ${props_version} 🔥"
 
+      - name: grab the pinned git-cliff 🧰🔥
+        run: bash scripts/install-git-cliff.sh
+
+      - name: render release notes from the tagged graph 📜🔥
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: bash scripts/release-notes.sh tag "$VERSION" > "${RUNNER_TEMP:?}/litty-release-notes.md"
+
       - name: push to nuget.org — the besties need these packages 🚀
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: python3 scripts/dotnet-ci.py push-packages
 
-      - name: extract changelog section for this version 📜
-        id: changelog
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          # extract everything between this version header and the next version header (or EOF)
-          NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} /^## \[/{if(found) exit} found{print}" CHANGELOG.md)
-          if [ -z "$NOTES" ]; then
-            NOTES="v${VERSION} dropped no cap — check the commits for the full vibe 🔥"
-          fi
-          {
-            echo "notes<<CHANGELOG_EOF"
-            echo "$NOTES"
-            echo "CHANGELOG_EOF"
-          } >> "$GITHUB_OUTPUT"
-
       - name: create or reuse forgejo release 🏠🔥
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
-          NOTES="$RELEASE_NOTES"
+          NOTES=$(cat "${RUNNER_TEMP:?}/litty-release-notes.md")
           PRERELEASE="${{ steps.version.outputs.prerelease }}"
           API_URL="${GITHUB_SERVER_URL}/api/v1"
           REPO="${GITHUB_REPOSITORY}"
@@ -177,7 +170,6 @@ jobs:
       - name: create github release on the mirror 🪞
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
-          RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
@@ -210,7 +202,7 @@ jobs:
             gh release create "${TAG}" \
               --repo "phsk69/litty-logs-dotnet" \
               --title "v${VERSION} — new drop 🔥" \
-              --notes "$RELEASE_NOTES" \
+              --notes-file "${RUNNER_TEMP:?}/litty-release-notes.md" \
               $PRERELEASE_FLAG \
               ./nupkgs/*.nupkg
           fi

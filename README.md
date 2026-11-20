@@ -372,7 +372,9 @@ keep branches tiny and auto-delete them after merge. `main` stays green and alwa
 
 ### release flow 🚀
 
-every merged releasable squash wakes `release-pr.yml`. the newest checksum-verified stable git-cliff `2.x` reads commits since the latest immutable `v*` tag, updates the single `release-pr` branch, and opens or refreshes one `chore(release): vX.Y.Z 🔥` PR. merge that PR and automation tags that exact `main` commit once; `release.yml` then builds, tests, packs, and ships it 🔥
+every merged releasable squash wakes `release-pr.yml`. checksum-pinned git-cliff `2.14.2` reads commits since the latest reachable version tag and opens or refreshes one `chore(release): vX.Y.Z 🔥` PR. the full release notes are right in the PR description. merge that PR and automation tags that exact signed `main` commit once 🔒🔥
+
+release math checks the files that actually ship. CI, docs, standalone tests, and tooling stay release-silent, even when the squash title says `fix` or has a breaking marker 🔍🔥
 
 strict SemVer rules are intentionally simple:
 
@@ -381,7 +383,7 @@ strict SemVer rules are intentionally simple:
 - `fix:`, `perf:`, `revert:`, and `chore(deps):` → patch 🐛🤖🔥
 - generic chores, docs, CI, tests, style, build, and refactors → no release noise 🔍🔥
 
-Forgejo manual dispatch supports `auto`, `patch`, `minor`, `major`, and `promote`. `promote` turns a prerelease like `1.0.0-rc.1` into `1.0.0` while copying its notes. manual dispatch only creates the PR; it never tags a side commit 🔒🔥
+Forgejo manual dispatch supports `auto`, `patch`, `minor`, `major`, and `promote`. `promote` turns a prerelease like `1.0.0-rc.1` into `1.0.0` and collects the notes since the previous stable release. a dispatch from current `main` can also retry tagging a pending signed version commit 🔒🔥
 
 if a future release uses an RC, automatic bumps pause while that prerelease is current instead of looping into `rc.2`; explicit `promote` is the stable gate and includes any emergency conventional commits that landed during the freeze 🔒🔥
 
@@ -405,7 +407,7 @@ forgejo actions on a self-hosted runner handles the whole squad:
 
 - **CI** (`ci.yml`) — validates the conventional squash title, release policy, build, tests, and packages on every PR to `main` 🔥
 - **Renovate** (`renovate.json5`) — keeps NuGet packages and Forgejo Actions fresh on `main`. .NET SDKs and Microsoft release-train nuggies wait for GA. non-major bumps auto-merge when CI goes green, and majors need a human bestie to review them 🤖🔥
-- **Release PR** (`release-pr.yml`) — calculates strict SemVer with the newest stable git-cliff `2.x`, maintains one rolling PR, then creates one immutable tag after merge 🧠🔒🔥
+- **Release PR** (`release-pr.yml`) — calculates strict SemVer from shipped changes, posts the notes in the rolling PR, then signs one immutable tag after merge 🧠🔒🔥
 - **Release** (`release.yml`) — triggered by `v*` tags. the full pipeline hits THREE destinations:
   1. **nuget.org** — all five `.nupkg` files with `--skip-duplicate` so retries dont catch Ls
   2. **forgejo releases** — via Gitea API with `.nupkg` assets attached 🏠
@@ -414,7 +416,7 @@ forgejo actions on a self-hosted runner handles the whole squad:
 pipeline features that go hard:
 - **fully retryable** — rerunning the same tag is safe; an existing tag at the same commit is a no-op, while moving or deleting a shipped tag is never part of the flow 🔄🔒🔥
 - **pre-release auto-detection** — versions with `-` (like `0.1.0-dev`, `1.0.0-beta.1`) auto-flag as pre-release on both platforms 🧪
-- **changelog extraction** — release notes auto-pulled from `CHANGELOG.md` for that professional rizz 📜
+- **release notes** — the same git-cliff renderer cooks the Release PR preview and the published notes from Git. `CHANGELOG.md` keeps the older release history 📜🔥
 - **version sanity check** — tag must match `Directory.Build.props` or the pipeline tells you its not it 💀
 
 see [`docs/runner-setup.md`](docs/runner-setup.md) for runner setup and required secrets no cap

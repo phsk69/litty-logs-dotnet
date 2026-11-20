@@ -13,12 +13,12 @@ the `linux` runner image needs these already available:
 | git | full tag + commit graph and release branch pushes | `git --version` |
 | OpenSSH `ssh-keygen` | SSH commit/tag signing plus trust verification | `ssh -V` |
 | bash | workflow scripts | `bash --version` |
-| curl + tar + sha256sum | install-action fetches and verifies temporary git-cliff | `curl --version` |
-| grep with `-P` + awk | version and changelog transforms | `grep -P --version` |
+| curl + tar + sha256sum | fetch and verify the pinned git-cliff binary | `curl --version` |
+| grep with `-P` + awk | version and signer checks | `grep -P --version` |
 | jq | safe Forgejo API payloads | `jq --version` |
 | gh | GitHub mirror releases | `gh --version` |
 
-git-cliff is intentionally not preinstalled on the runner. `https://github.com/taiki-e/install-action@v2` resolves the newest stable `git-cliff@2` with its short dependency cooldown, verifies the upstream checksum, and exposes it only for that job. the fully qualified URL keeps Forgejo from rewriting the action to its default mirror, `fallback: none` forbids Cargo/binstall/source fallbacks, and an explicit version assertion rejects any accidental `3.x` jump. the action tag itself is visible to Renovate, so future action majors stay reviewable instead of fossilizing in shell strings 🔒🔥
+each release-policy, release-PR, and publication job installs the same git-cliff `2.14.2` build with `scripts/install-git-cliff.sh`. the script verifies the pinned archive checksum before exposing the binary on that job's PATH 🔒🔥
 
 workflow syntax follows Forgejo's own [Actions reference](https://forgejo.org/docs/latest/user/actions/reference/), [GitHub Actions differences](https://forgejo.org/docs/latest/user/actions/github-actions/), and [runner troubleshooting guide](https://forgejo.org/docs/latest/user/actions/troubleshooting/). GitHub syntax is never assumed compatible: remote actions use explicit URLs, and `bash scripts/test-forgejo-workflows.sh` rejects keys Forgejo documents as ignored 🔍🔒🔥
 
@@ -75,14 +75,14 @@ verify the runner is green under Forgejo repo → Settings → Actions → Runne
 
 ### rolling Release PR — `.forgejo/workflows/release-pr.yml`
 
-- every push to `main` runs the newest checksum-verified stable git-cliff `2.x` against commits after the newest matching tag.
-- `feat!` is major; `feat` is minor; `fix`, `perf`, `revert`, and `chore(deps)` are patch; generic maintenance commits are skipped.
-- releasable work force-refreshes the single `release-pr` branch and opens or updates `chore(release): vX.Y.Z 🔥`.
+- the signing job verifies the source graph before the release job receives credentials. pinned git-cliff reads commits after the latest reachable release tag.
+- shipped breaking changes are major, features are minor, and fixes and shipped dependency updates are patch. CI, docs, standalone tests, and tooling stay release-silent 🔍🔥
+- releasable work refreshes the single `release-pr` branch and puts the generated Markdown in the Release PR description.
 - merging that PR changes `Directory.Build.props`; the next run creates one annotated tag on that exact `main` commit.
 - the release bot signs and locally verifies both its rolling release commit and immutable tag before either is pushed.
-- if that first run fails before creating the tag, the next green `main` commit may recover the still-unused version when its changelog section exists and the last tagged baseline has a different version. the recovered tag lands on the fixed head, folding pre-tag repairs into the intended release instead of shipping known-broken automation 🔧🔥
-- an existing tag at that same commit is a retry-safe no-op. an existing tag anywhere else is a hard failure and is never moved or deleted.
-- manual dispatch can request `auto`, `patch`, `minor`, `major`, or `promote`; dispatch only makes a PR and never tags its starting commit.
+- if tagging fails, rerun from current `main` to recover the signed first-parent commit that introduced the version. the retry keeps that exact release commit 🔧🔥
+- an existing signed tag on the same commit is a retry-safe no-op. a version collision fails the workflow.
+- manual dispatch can request `auto`, `patch`, `minor`, `major`, or `promote` from current `main`.
 - while the one-off RC is current, automatic bumping pauses instead of inventing `rc.2`; `promote` is the explicit gate to stable and also includes any emergency conventional commits landed during the freeze 🔒🔥
 
 ### ship job — `.forgejo/workflows/release.yml`
@@ -92,7 +92,7 @@ the immutable `v*` tag wakes one serialized job that:
 1. verifies the trusted SSH tag signature, proves the tagged commit is on `main`, and checks strict SemVer + `Directory.Build.props`.
 2. builds, tests, and packs all five NuGet packages.
 3. pushes to nuget.org with `--skip-duplicate`.
-4. creates or refreshes the Forgejo release and package assets.
+4. creates or refreshes the Forgejo release and package assets using notes rendered from the exact tag.
 5. waits for the GitHub mirror tag, then creates or refreshes the GitHub release and assets.
 
 retry the same workflow/tag whenever a destination flakes. do not create the same tag again and never delete it; the three publishers are idempotent on the original version 🔄🔒🔥

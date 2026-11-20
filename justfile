@@ -87,8 +87,9 @@ release-notes:
         exit 1
     fi
     next=$(git-cliff --config cliff.toml --bumped-version --unreleased)
-    if [ -z "$next" ]; then
+    current=$(sed -n 's/^[[:space:]]*<Version>\([^<]*\)<\/Version>[[:space:]]*$/\1/p' Directory.Build.props)
+    if [ -z "$next" ] || [ "${next#v}" = "$current" ]; then
         echo "no releasable commits are cooking right now bestie 🔍🔥"
         exit 0
     fi
-    git-cliff --config cliff.toml --unreleased --tag "$next" --strip all
+    bash scripts/release-notes.sh preview "${next#v}"

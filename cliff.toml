@@ -25,16 +25,20 @@ trim = true
 render_always = true
 
 [git]
+# A release-worthy title only counts when the commit touches a shipped input.
+include_paths = ["src/**", "Directory.Build.props"]
+exclude_paths = ["**/*.md", "src/**/tests/**", "src/**/benchmarks/**"]
 conventional_commits = true
 filter_unconventional = true
 split_commits = false
 protect_breaking_commits = true
 filter_commits = false
 tag_pattern = '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?$'
-use_branch_tags = false
+use_branch_tags = true
 topo_order = false
 sort_commits = "oldest"
 commit_parsers = [
+  { message = '^chore\(release\):', skip = true },
   { message = '^[a-z]+(?:\([^)]*\))?!:', group = "breaking glow-ups 💥🔥" },
   { message = '^feat(?:\([^)]*\))?:', group = "added — fresh rizz ✨🔥" },
   { message = '^fix(?:\([^)]*\))?:', group = "fixed — Ls eliminated 🐛🔥" },
