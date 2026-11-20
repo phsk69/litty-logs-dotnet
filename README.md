@@ -344,6 +344,16 @@ source completions/just.bash  # bash
 
 version lives in one place: `Directory.Build.props`. all five packages inherit from it. `main` is the only long-lived branch; every feature, fix, chore, Renovate update, and rolling Release PR goes straight into it through a tiny squash PR 🌳🔥
 
+### .NET SDK support 🔥
+
+the whole .NET squad lives in `LittyLogsSupportedFrameworks` in `Directory.Build.props`. we build for the latest stable STS, the latest stable LTS, and the previous LTS while Microsoft still supports it 🔥
+
+when a major hits GA, rotate the list in a reviewed PR. new STS? swap out the old STS. new LTS? add it and keep the current STS. when the previous LTS hits end of support, yeet it 🗑️🔥 [Microsoft .NET support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core)
+
+`just` uses the target that matches your local SDK. Renovate refreshes the NuGet locks in its dependency PRs. rotating a target or bumping a dependency by hand? grab the newest supported SDK and run `dotnet restore LittyLogs.slnx --force-evaluate` to refresh the solution locks 🔒🔥
+
+CI pulls upstream .NET SDK images with Podman and uses `litty` itself to build, test, and pack. it packs all targets in one go and smoke-tests the actual nuggies on every supported runtime. CLI and test telemetry are off, and the build, test, pack, and smoke runs cook offline 📦🧪🔥
+
 ### trunk-based flow 🌳
 
 ```bash
@@ -394,7 +404,7 @@ there is no special hotfix branch type and no merge-back. the fix lands on `main
 forgejo actions on a self-hosted runner handles the whole squad:
 
 - **CI** (`ci.yml`) — validates the conventional squash title, release policy, build, tests, and packages on every PR to `main` 🔥
-- **Renovate** (`renovate.json5`) — keeps NuGet packages and Forgejo Actions fresh on `main`. non-major updates auto-merge after green CI; major updates stay regular PRs for human review no cap 🤖🔥
+- **Renovate** (`renovate.json5`) — keeps NuGet packages and Forgejo Actions fresh on `main`. .NET SDKs and Microsoft release-train nuggies wait for GA. non-major bumps auto-merge when CI goes green, and majors need a human bestie to review them 🤖🔥
 - **Release PR** (`release-pr.yml`) — calculates strict SemVer with the newest stable git-cliff `2.x`, maintains one rolling PR, then creates one immutable tag after merge 🧠🔒🔥
 - **Release** (`release.yml`) — triggered by `v*` tags. the full pipeline hits THREE destinations:
   1. **nuget.org** — all five `.nupkg` files with `--skip-duplicate` so retries dont catch Ls

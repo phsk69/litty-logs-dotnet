@@ -6,32 +6,32 @@ export DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER := "1"
 
 # build the whole solution — litty-fied output no cap 🏗️🔥
 build *args:
-    dotnet run --project src/LittyLogs.Tool -- build {{ args }}
+    bash scripts/dotnet-local.sh run --project src/LittyLogs.Tool -- build {{ args }}
 
 # run all the tests — litty-fied output with detailed test results 🧪🔥
 test *args:
-    dotnet run --project src/LittyLogs.Tool -- test {{ args }}
+    bash scripts/dotnet-local.sh run --project src/LittyLogs.Tool -- test {{ args }}
 
 # publish the solution — litty-fied output bestie 📤🔥
 publish *args:
-    dotnet run --project src/LittyLogs.Tool -- publish {{ args }}
+    bash scripts/dotnet-local.sh run --project src/LittyLogs.Tool -- publish {{ args }}
 
 # pack all NuGet packages — litty-fied output so the besties can install em 📦🔥
 pack *args:
-    dotnet run --project src/LittyLogs.Tool -- pack -c Release {{ args }}
+    bash scripts/dotnet-local.sh run --project src/LittyLogs.Tool -- pack -c Release {{ args }}
 
 # run an example — usage: just example web|hosted|console|xunit|json|filesink|webhooks [extra args] 🔥
 example name *args:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{ name }}" in
-        web)      dotnet run --project examples/LittyLogs.Example.WebApi -- {{ args }} ;;
-        hosted)   dotnet run --project examples/LittyLogs.Example.HostedService -- {{ args }} ;;
-        console)  dotnet run --project examples/LittyLogs.Example.Console -- {{ args }} ;;
-        xunit)    dotnet run --project src/LittyLogs.Tool -- test --project examples/LittyLogs.Example.Xunit/LittyLogs.Example.Xunit.csproj {{ args }} ;;
-        json)     dotnet run --project examples/LittyLogs.Example.Json -- {{ args }} ;;
-        filesink) dotnet run --project examples/LittyLogs.Example.FileSink -- {{ args }} ;;
-        webhooks) dotnet run --project examples/LittyLogs.Example.Webhooks -- {{ args }} ;;
+        web)      bash scripts/dotnet-local.sh run --project examples/LittyLogs.Example.WebApi -- {{ args }} ;;
+        hosted)   bash scripts/dotnet-local.sh run --project examples/LittyLogs.Example.HostedService -- {{ args }} ;;
+        console)  bash scripts/dotnet-local.sh run --project examples/LittyLogs.Example.Console -- {{ args }} ;;
+        xunit)    bash scripts/dotnet-local.sh run --project src/LittyLogs.Tool -- test --project examples/LittyLogs.Example.Xunit/LittyLogs.Example.Xunit.csproj {{ args }} ;;
+        json)     bash scripts/dotnet-local.sh run --project examples/LittyLogs.Example.Json -- {{ args }} ;;
+        filesink) bash scripts/dotnet-local.sh run --project examples/LittyLogs.Example.FileSink -- {{ args }} ;;
+        webhooks) bash scripts/dotnet-local.sh run --project examples/LittyLogs.Example.Webhooks -- {{ args }} ;;
         *)        echo "bruh '{{ name }}' aint valid — try web, hosted, console, xunit, json, filesink, or webhooks 💀🔥"; exit 1 ;;
     esac
 
@@ -66,7 +66,7 @@ setup-completions:
 
 # yeet all build artifacts — litty-fied so you see what gets yeeted 🗑️🔥
 clean *args:
-    dotnet run --project src/LittyLogs.Tool -- clean {{ args }}
+    bash scripts/dotnet-local.sh run --project src/LittyLogs.Tool -- clean {{ args }}
 
 # preview the next strict SemVer without touching files or installing anything 🔍🔥
 release-next:

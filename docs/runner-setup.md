@@ -8,7 +8,8 @@ the `linux` runner image needs these already available:
 
 | tool | why its invited 🔥 | vibe check |
 |---|---|---|
-| .NET SDK 10.0 | build, test, and pack all five projects | `dotnet --version` |
+| Podman with rootless user namespaces | run the upstream Microsoft .NET SDK images for builds, tests, packaging and NuGet upload | `podman info` |
+| Python 3.11+ | run the SDK and package checks and verify NuGet artifacts | `python3 --version` |
 | git | full tag + commit graph and release branch pushes | `git --version` |
 | OpenSSH `ssh-keygen` | SSH commit/tag signing plus trust verification | `ssh -V` |
 | bash | workflow scripts | `bash --version` |
@@ -70,7 +71,7 @@ verify the runner is green under Forgejo repo → Settings → Actions → Runne
 - `commitlint` requires a conventional PR title ending in 🔥; squash merge turns that title into release input.
 - `signing-policy` verifies every commit after the grandfathered rollout cutoff against the repository SSH allowlist.
 - `release-policy` proves fix/perf/revert/dependency chores are patch, features are minor, breaking changes are major even below 1.0, noise-only commits are silent, and deleted source branches change nothing.
-- `build-and-test` builds, tests, and packs without publishing.
+- `build-and-test` pulls the stable Microsoft SDK image for each supported .NET channel and uses that image's ID throughout the job. The .NET CLI and Microsoft.Testing.Platform opt out of telemetry. Builds, tests, packing, and smoke-test execution run with container networking disabled. Image pulls and NuGet restores and installs use the network. Tag publication verifies the artifacts from that run and uses the newest supported SDK image to upload them to NuGet.
 
 ### rolling Release PR — `.forgejo/workflows/release-pr.yml`
 

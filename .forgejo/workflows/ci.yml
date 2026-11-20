@@ -57,6 +57,7 @@ jobs:
           echo "verified ${verified} post-rollout commit signature(s), trust chain ate 🔏🔥"
 
   release-policy:
+    needs: signing-policy
     runs-on: linux
     steps:
       - name: yoink the release policy fixtures 📥🔥
@@ -86,19 +87,13 @@ jobs:
           CLIFF="$(command -v git-cliff)" bash scripts/test-release-policy.sh
 
   build-and-test:
+    needs: signing-policy
     runs-on: linux
     steps:
       - name: yoink the code 📥
         uses: https://data.forgejo.org/actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - name: litty build the whole solution bestie 🏗️🔥
-        run: dotnet run --project src/LittyLogs.Tool -- build --configuration Release
-
-      - name: litty test — check all the vibes 🧪🔥
-        run: dotnet run --project src/LittyLogs.Tool -- test --configuration Release --no-build
-
-      - name: pack to verify nupkgs build clean 📦
-        run: dotnet pack --configuration Release --no-build --output ./nupkgs
-
-      - name: flex the artifacts 💅
-        run: ls -la ./nupkgs/
+      - name: Verify all supported SDKs and packages
+        run: python3 scripts/dotnet-ci.py build

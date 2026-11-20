@@ -10,4 +10,13 @@
     <!-- only src/ packages opt in — examples and tests stay unpackable by default -->
     <IsPackable>false</IsPackable>
   </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Oldest to newest. Rotate GA channels according to the support policy in README.md. -->
+    <LittyLogsSupportedFrameworks>net10.0;net11.0</LittyLogsSupportedFrameworks>
+    <TargetFrameworks Condition="'$(LittyLogsFramework)' == ''">$(LittyLogsSupportedFrameworks)</TargetFrameworks>
+    <TargetFramework Condition="'$(LittyLogsFramework)' != ''">$(LittyLogsFramework)</TargetFramework>
+    <RestorePackagesWithLockFile Condition="'$(LittyLogsFramework)' == ''">true</RestorePackagesWithLockFile>
+    <NuGetLockFilePath Condition="'$(LittyLogsFramework)' != ''">$(MSBuildProjectDirectory)/obj/packages.$(LittyLogsFramework).lock.json</NuGetLockFilePath>
+  </PropertyGroup>
 </Project>

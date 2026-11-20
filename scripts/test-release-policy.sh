@@ -43,8 +43,9 @@ assert_bump() {
     local name="$1"
     local message="$2"
     local expected="$3"
+    local baseline="${4:-0.2.4}"
     local fixture
-    fixture=$(new_fixture "$name")
+    fixture=$(new_fixture "$name" "$baseline")
     git -C "$fixture" commit --quiet --allow-empty -m "$message"
     local actual
     actual=$(next_version "$fixture")
@@ -78,6 +79,7 @@ assert_bump revert "revert: undo the cursed change 🔥" 0.2.5
 assert_bump deps "chore(deps): update the nuggies 🔥" 0.2.5
 assert_bump feature "feat: ship fresh rizz 🔥" 0.3.0
 assert_bump breaking "feat(api)!: reset the public surface 🔥" 1.0.0
+assert_bump dotnet-support "feat(dotnet)!: support the current LTS and STS SDKs 🔥" 3.0.0 2.0.10
 assert_no_bump chore "chore: rearrange the maintenance vibes 🔥"
 assert_no_bump docs "docs: explain the vibes harder 🔥"
 

@@ -27,6 +27,17 @@
   },
   "packageRules": [
     {
+      "description": "Only GA versions of Microsoft .NET release-train packages",
+      "matchDatasources": ["nuget"],
+      "matchPackageNames": ["Microsoft.Extensions.*", "Microsoft.AspNetCore.*"],
+      "allowedVersions": "/^\\d+(?:\\.\\d+){1,3}(?:\\+[0-9A-Za-z.-]+)?$/"
+    },
+    {
+      "description": "Only GA versions of the .NET SDK and runtime",
+      "matchDatasources": ["dotnet-version"],
+      "allowedVersions": "/^\\d+(?:\\.\\d+){1,3}(?:\\+[0-9A-Za-z.-]+)?$/"
+    },
+    {
       "description": "Major updates need a human bestie before they land",
       "matchUpdateTypes": ["major"],
       "automerge": false

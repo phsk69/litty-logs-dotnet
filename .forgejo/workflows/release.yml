@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
+  signing-policy:
     runs-on: linux
     steps:
       - name: yoink the code 📥
@@ -19,26 +19,56 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: reject unsigned or untrusted release tags 🔏🔥
+      - name: Verify the signed tag and all post-rollout commits
         run: |
           set -euo pipefail
+          cutoff=89ce86f06910c4b8f6f7254afa11651f85385b62
           git config gpg.format ssh
           git config gpg.ssh.program ssh-keygen
           git config gpg.ssh.allowedSignersFile "$GITHUB_WORKSPACE/.forgejo/signing/allowed_signers"
           git config gpg.ssh.revocationFile "$GITHUB_WORKSPACE/.forgejo/signing/revoked_signers"
           git verify-tag "$GITHUB_REF_NAME"
-          echo "${GITHUB_REF_NAME} carries a trusted SSH signature, ship gate slayed 🔏🔥"
-
-      - name: make sure the tag grew from the main trunk 🌳🔒
-        run: |
           git fetch --no-tags origin main
-          main_commit=$(git rev-parse FETCH_HEAD)
           tag_commit=$(git rev-list -n 1 "${GITHUB_REF_NAME}")
-          if ! git merge-base --is-ancestor "$tag_commit" "$main_commit"; then
-            echo "bruh ${GITHUB_REF_NAME} is not on main — rogue tags do not ship nuggies 💀"
-            exit 1
-          fi
-          echo "${GITHUB_REF_NAME} is rooted in main, trunk vibes confirmed 🌳🔥"
+          test "$tag_commit" = "$(git rev-parse HEAD)"
+          git merge-base --is-ancestor "$tag_commit" FETCH_HEAD
+          git merge-base --is-ancestor "$cutoff" "$tag_commit"
+          commits=$(git rev-list --reverse "${cutoff}..${tag_commit}")
+          while read -r commit; do
+            [ -n "$commit" ] || continue
+            git verify-commit "$commit"
+          done <<< "$commits"
+
+  build-and-test:
+    needs: signing-policy
+    runs-on: linux
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Verify all supported SDKs and packages
+        run: python3 scripts/dotnet-ci.py build
+      - name: Save the tested NuGet packages
+        uses: https://code.forgejo.org/forgejo/upload-artifact@v5
+        with:
+          name: tested-nupkgs
+          path: nupkgs/
+          if-no-files-found: error
+
+  release:
+    needs: build-and-test
+    runs-on: linux
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Receive the packages tested in this run
+        uses: https://code.forgejo.org/forgejo/download-artifact@v7
+        with:
+          name: tested-nupkgs
+          path: nupkgs/
+      - name: Verify package revision, file list, and digests
+        run: python3 scripts/dotnet-ci.py verify-packages
 
       - name: figure out the version from the tag 🏷️
         id: version
@@ -70,27 +100,10 @@ jobs:
           fi
           echo "version vibes match — ${props_version} 🔥"
 
-      - name: litty build in release mode 🏗️🔥
-        run: dotnet run --project src/LittyLogs.Tool -- build --configuration Release
-
-      - name: litty test one more time for the culture 🧪🔥
-        run: dotnet run --project src/LittyLogs.Tool -- test --configuration Release --no-build
-
-      - name: pack all the nuggies 📦
-        run: dotnet pack --configuration Release --no-build --output ./nupkgs
-
-      - name: flex what we packed 💅
-        run: ls -la ./nupkgs/
-
       - name: push to nuget.org — the besties need these packages 🚀
-        run: |
-          for pkg in ./nupkgs/*.nupkg; do
-            echo "pushing ${pkg} to nuget.org no cap 📤"
-            dotnet nuget push "$pkg" \
-              --api-key "${{ secrets.NUGET_API_KEY }}" \
-              --source https://api.nuget.org/v3/index.json \
-              --skip-duplicate
-          done
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: python3 scripts/dotnet-ci.py push-packages
 
       - name: extract changelog section for this version 📜
         id: changelog
