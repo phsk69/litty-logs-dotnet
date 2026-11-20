@@ -12,6 +12,6 @@ This includes:
 - Interface summaries
 - Commit messages
 - Error messages (http etc)
-- changelog.md entries
+- Generated release notes
 - readme.md changes
 - Plans from plan mode (IMPORTANT, NO COrPORATE DOOKIE NON-RIZZED PLANS BRO)
