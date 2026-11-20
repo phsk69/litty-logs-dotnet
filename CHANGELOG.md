@@ -4,6 +4,14 @@ all the glow-ups and level-ups for litty-logs no cap 🔥
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-20
+
+
+### breaking glow-ups 💥🔥
+
+- Support the current LTS and STS SDKs 🔥 (#39) 🔥
+
+
 ## [2.0.10] - 2026-11-20
 
 
